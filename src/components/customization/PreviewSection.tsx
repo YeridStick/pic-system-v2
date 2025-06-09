@@ -216,7 +216,7 @@ export const PreviewSection: React.FC = () => {
 
   return (
     <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
-      <div className="bg-gradient-to-r from-emerald-500 to-teal-600 p-6 text-white">
+      <div className="bg-gradient-to-r from-red-500 to-red-600 p-6 text-white">
         <div className="flex items-center justify-between">
           <div className="flex items-center">
             <div className="p-3 bg-white/20 backdrop-blur-sm rounded-lg mr-4">
