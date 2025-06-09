@@ -168,14 +168,14 @@ export const FormulasTab: React.FC = () => {
 
       {/* Calculadora Interactiva */}
       <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
-        <div className="bg-gradient-to-r from-emerald-500 to-blue-600 p-6 text-white">
+        <div className="bg-gradient-to-r from-blue-500 to-blue-600 p-6 text-white">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
               <div className="p-3 bg-white/20 backdrop-blur-sm rounded-lg mr-4">
                 <Calculator className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="text-xl font-bold">🧮 Calculadora Interactiva</h3>
+                <h3 className="text-xl font-bold">Calculadora Interactiva</h3>
                 <p className="text-white/90">Prueba las fórmulas con tus propios valores</p>
               </div>
             </div>

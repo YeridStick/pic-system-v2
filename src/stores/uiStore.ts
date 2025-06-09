@@ -14,6 +14,8 @@ interface UIState {
   
   // Estado de sidebar (para futuras funcionalidades)
   sidebarOpen: boolean;
+  // Nuevo estado para el menú móvil
+  isMobileMenuOpen: boolean;
   
   // Acciones de navegación
   setActiveTab: (tab: TabType) => void;
@@ -28,6 +30,9 @@ interface UIState {
   // Acciones de sidebar
   toggleSidebar: () => void;
   setSidebarOpen: (open: boolean) => void;
+  // Nuevas acciones para el menú móvil
+  openMobileMenu: () => void;
+  closeMobileMenu: () => void;
 }
 
 export const useUIStore = create<UIState>()(
@@ -42,6 +47,7 @@ export const useUIStore = create<UIState>()(
       },
       isLoading: false,
       sidebarOpen: false,
+      isMobileMenuOpen: false, // Inicializar nuevo estado
 
       // Acciones de navegación
       setActiveTab: (tab: TabType) => {
@@ -82,13 +88,17 @@ export const useUIStore = create<UIState>()(
       setSidebarOpen: (open: boolean) => {
         set({ sidebarOpen: open });
       },
+      // Nuevas acciones para el menú móvil
+      openMobileMenu: () => set({ isMobileMenuOpen: true }),
+      closeMobileMenu: () => set({ isMobileMenuOpen: false }),
     }),
     {
       name: 'pic-ui-store',
-      // Solo persistir la pestaña activa, no los modales ni loading states
+      // Solo persistir la pestaña activa y el estado de la barra lateral, no los modales ni loading states
       partialize: (state) => ({
         activeTab: state.activeTab,
         sidebarOpen: state.sidebarOpen,
+        isMobileMenuOpen: state.isMobileMenuOpen, // Persistir también el estado del menú móvil
       }),
     }
   )

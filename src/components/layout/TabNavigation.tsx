@@ -5,7 +5,9 @@ import {
   Settings, 
   Palette, 
   Database,
-  ChevronRight
+  ChevronRight,
+  Menu,
+  X
 } from 'lucide-react';
 import { useUIStore } from '../../stores/uiStore';
 import type { TabType } from '../../types/ui';
@@ -63,13 +65,91 @@ export const tabs: TabItem[] = [
 ];
 
 export const TabNavigation: React.FC = () => {
-  const { activeTab, setActiveTab } = useUIStore();
+  const { activeTab, setActiveTab, isMobileMenuOpen, openMobileMenu, closeMobileMenu } = useUIStore();
+
+  const handleTabClick = (tabId: TabType) => {
+    setActiveTab(tabId);
+    closeMobileMenu(); // Close the mobile menu when a tab is clicked
+  };
 
   return (
     <nav className="bg-white shadow-lg border-t border-gray-200">
       <div className="mx-auto px-4 justify-center">
-        {/* Navegación principal */}
-        <div className="flex items-center justify-between">
+        {/* Botón de hamburguesa para móviles */}
+        <div className="2xl:hidden flex items-center justify-end h-16">
+          <button
+            onClick={openMobileMenu}
+            className="p-2 rounded-lg text-gray-600 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <Menu className="w-6 h-6" />
+          </button>
+        </div>
+
+        {/* Menú lateral (mobile) */}
+        <div
+          className={`
+            fixed inset-0 z-50 transform transition-transform duration-300 ease-in-out
+            2xl:hidden
+            ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
+          `}
+        >
+          <div className="absolute inset-0 bg-black/50" onClick={closeMobileMenu}></div> {/* Overlay */}
+          <div className="relative w-64 bg-white h-full shadow-lg flex flex-col">
+            <div className="p-4 border-b border-gray-100 flex justify-between items-center">
+              <h2 className="text-lg font-semibold">Menú</h2>
+              <button
+                onClick={closeMobileMenu}
+                className="p-2 rounded-lg text-gray-600 hover:bg-gray-100 focus:outline-none"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="flex flex-col p-4 space-y-2">
+              {tabs.map((tab) => {
+                const isActive = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => handleTabClick(tab.id)}
+                    className={[
+                      'group relative flex items-center space-x-3 px-4 py-3 rounded-lg font-medium text-sm text-left',
+                      'transition-colors duration-200 w-full',
+                      isActive
+                        ? `bg-gradient-to-r ${tab.color} text-white shadow-md`
+                        : 'bg-white text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                    ].join(' ')}
+                  >
+                    {/* Icono */}
+                    <div className={[
+                      'p-2 rounded-lg transition-all duration-300',
+                      isActive
+                        ? 'bg-white/20 text-white'
+                        : 'bg-gray-100 group-hover:bg-gray-200 text-gray-600'
+                    ].join(' ')}>
+                      {tab.icon}
+                    </div>
+
+                    {/* Contenido del tab */}
+                    <div className="flex flex-col items-start">
+                      <span className="font-semibold">
+                        {tab.label}
+                      </span>
+                      <span className={`
+                        text-xs 
+                        ${isActive ? 'text-white/80' : 'text-gray-500'}
+                      `}>
+                        {tab.description}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Navegación principal (escritorio) */}
+        <div className="hidden 2xl:flex items-center justify-between">
           {/* Tabs */}
           <div className="flex space-x-1">
             {tabs.map((tab) => {
@@ -108,7 +188,7 @@ export const TabNavigation: React.FC = () => {
                       <span className="lg:hidden">{tab.shortLabel}</span>
                     </span>
                     <span className={`
-                      text-xs hidden md:inline
+                      text-xs hidden 2xl:inline
                       ${isActive ? 'text-white/80' : 'text-gray-500'}
                     `}>
                       {tab.description}

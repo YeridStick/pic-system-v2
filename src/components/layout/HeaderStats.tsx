@@ -30,7 +30,7 @@ export const HeaderStats: React.FC = () => {
       label: 'Ganancia Est.',
       value: formatCurrency(summary.presupuestoActual - summary.costoTotal),
       icon: Target,
-      color: 'text-orange-400'
+      color: 'text-indigo-400'
     }
   ];
 
