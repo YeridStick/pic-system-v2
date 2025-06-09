@@ -246,6 +246,10 @@ export const useProductStore = create<ProductState>()(
             valorCosto: 1500,
             margen: 25,
             valorTotal: 1875,
+            fechaCreacion: new Date().toISOString(),
+            fechaActualizacion: new Date().toISOString(),
+            impuestos: [],
+            costosAdicionales: [],
           },
           {
             id: 'test-2',
@@ -257,6 +261,10 @@ export const useProductStore = create<ProductState>()(
             valorCosto: 500,
             margen: 30,
             valorTotal: 650,
+            fechaCreacion: new Date().toISOString(),
+            fechaActualizacion: new Date().toISOString(),
+            impuestos: [],
+            costosAdicionales: [],
           },
           {
             id: 'test-3',
@@ -268,6 +276,10 @@ export const useProductStore = create<ProductState>()(
             valorCosto: 2000,
             margen: 15,
             valorTotal: 2300,
+            fechaCreacion: new Date().toISOString(),
+            fechaActualizacion: new Date().toISOString(),
+            impuestos: [],
+            costosAdicionales: [],
           },
         ];
         set({

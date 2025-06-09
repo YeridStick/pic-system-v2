@@ -15,7 +15,7 @@ export interface NotificationOptions {
 
 export interface ModalState {
   isOpen: boolean;
-  type: 'edit' | 'delete' | 'confirm' | 'view' | 'import' | null;
+  type: 'edit' | 'delete' | 'confirm' | 'view' | 'import' | 'viewTaxDetails' | null;
   data?: Product;
 }
 

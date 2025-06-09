@@ -22,7 +22,7 @@ import { calculateTotalValue } from '../../utils/calculations';
 import { formatCurrency } from '../../utils/formatters';
 import { Button } from '../common/Button';
 import toast from 'react-hot-toast';
-import type { Product, ProductCategory as ProductCategoryType } from '../../types';
+import type { Product, ProductCategory as ProductCategoryType, TaxConfig, AdditionalCost } from '../../types';
 
 // Schema de validación con Zod
 const productSchema = z.object({
@@ -41,7 +41,21 @@ const productSchema = z.object({
     .max(999999999, 'El valor es demasiado alto'),
   margen: z.number()
     .min(0, 'El margen no puede ser negativo')
-    .max(1000, 'El margen no puede exceder 1000%')
+    .max(1000, 'El margen no puede exceder 1000%'),
+  
+  // Nuevos campos para impuestos
+  includeIva: z.boolean().optional(),
+  ivaRate: z.number().min(0).max(100).optional(),
+  
+  includeImpConsumo: z.boolean().optional(),
+  impConsumoRate: z.number().min(0).max(100).optional(),
+
+  includeOtrosImp: z.boolean().optional(),
+  otrosImpRate: z.number().min(0).max(100).optional(),
+
+  // Nuevos campos para costos adicionales
+  includeCostosAdic: z.boolean().optional(),
+  costosAdicValue: z.number().min(0).optional(),
 });
 
 type ProductFormData = z.infer<typeof productSchema>;
@@ -67,29 +81,76 @@ export const ProductForm: React.FC = () => {
       presentacion: '',
       categoria: 'papeleria',
       valorCosto: 0,
-      margen: 25
+      margen: 25,
+      includeIva: false,
+      ivaRate: 19,
+      includeImpConsumo: false,
+      impConsumoRate: 8,
+      includeOtrosImp: false,
+      otrosImpRate: 0,
+      includeCostosAdic: false,
+      costosAdicValue: 0,
     },
     mode: 'onChange'
   });
 
   const watchedCosto = watch('valorCosto');
   const watchedMargen = watch('margen');
+  const watchedIncludeIva = watch('includeIva');
+  const watchedIvaRate = watch('ivaRate');
+  const watchedIncludeImpConsumo = watch('includeImpConsumo');
+  const watchedImpConsumoRate = watch('impConsumoRate');
+  const watchedIncludeOtrosImp = watch('includeOtrosImp');
+  const watchedOtrosImpRate = watch('otrosImpRate');
+  const watchedIncludeCostosAdic = watch('includeCostosAdic');
+  const watchedCostosAdicValue = watch('costosAdicValue');
 
   // Calcular valor total en tiempo real
   useEffect(() => {
-    if (watchedCosto > 0 && watchedMargen >= 0) {
-      const total = calculateTotalValue(watchedCosto, watchedMargen);
+    if (watchedCosto > 0 || watchedMargen >= 0 || watchedIncludeIva || watchedIncludeImpConsumo || watchedIncludeOtrosImp || watchedIncludeCostosAdic) {
+      const impuestos: TaxConfig[] = [];
+      if (watchedIncludeIva && watchedIvaRate !== undefined) {
+        impuestos.push({ enabled: true, type: 'iva', rate: watchedIvaRate, description: 'Impuesto al Valor Agregado' });
+      }
+      if (watchedIncludeImpConsumo && watchedImpConsumoRate !== undefined) {
+        impuestos.push({ enabled: true, type: 'consumo', rate: watchedImpConsumoRate, description: 'Impuesto al Consumo' });
+      }
+      if (watchedIncludeOtrosImp && watchedOtrosImpRate !== undefined) {
+        impuestos.push({ enabled: true, type: 'retencion', rate: watchedOtrosImpRate, description: 'Otros Impuestos (Genérico)' });
+      }
+
+      const costosAdicionales: AdditionalCost[] = [];
+      if (watchedIncludeCostosAdic && watchedCostosAdicValue !== undefined) {
+        costosAdicionales.push({ enabled: true, type: 'transporte', value: watchedCostosAdicValue, description: 'Costos Adicionales (Genérico)' });
+      }
+
+      const total = calculateTotalValue(watchedCosto, watchedMargen, impuestos, costosAdicionales);
       setCalculatedTotal(total);
     } else {
       setCalculatedTotal(0);
     }
-  }, [watchedCosto, watchedMargen]);
+  }, [watchedCosto, watchedMargen, watchedIncludeIva, watchedIvaRate, watchedIncludeImpConsumo, watchedImpConsumoRate, watchedIncludeOtrosImp, watchedOtrosImpRate, watchedIncludeCostosAdic, watchedCostosAdicValue]);
 
   const onSubmit = async (data: ProductFormData) => {
     setIsSubmitting(true);
     
     try {
-      const valorTotal = calculateTotalValue(data.valorCosto, data.margen);
+      const impuestos: TaxConfig[] = [];
+      if (data.includeIva && data.ivaRate !== undefined) {
+        impuestos.push({ enabled: true, type: 'iva', rate: data.ivaRate, description: 'Impuesto al Valor Agregado' });
+      }
+      if (data.includeImpConsumo && data.impConsumoRate !== undefined) {
+        impuestos.push({ enabled: true, type: 'consumo', rate: data.impConsumoRate, description: 'Impuesto al Consumo' });
+      }
+      if (data.includeOtrosImp && data.otrosImpRate !== undefined) {
+        impuestos.push({ enabled: true, type: 'retencion', rate: data.otrosImpRate, description: 'Otros Impuestos (Genérico)' }); // Using 'retencion' as a generic type
+      }
+
+      const costosAdicionales: AdditionalCost[] = [];
+      if (data.includeCostosAdic && data.costosAdicValue !== undefined) {
+        costosAdicionales.push({ enabled: true, type: 'transporte', value: data.costosAdicValue, description: 'Costos Adicionales (Genérico)' }); // Using 'transporte' as a generic type
+      }
+      const valorTotal = calculateTotalValue(data.valorCosto, data.margen, impuestos, costosAdicionales);
       
       const newProduct: Product = {
         id: Date.now().toString(),
@@ -100,7 +161,11 @@ export const ProductForm: React.FC = () => {
         categoria: data.categoria,
         valorCosto: data.valorCosto,
         margen: data.margen,
-        valorTotal
+        valorTotal,
+        fechaCreacion: new Date().toISOString(),
+        fechaActualizacion: new Date().toISOString(),
+        impuestos,
+        costosAdicionales,
       };
       
       addProduct(newProduct);
@@ -112,7 +177,15 @@ export const ProductForm: React.FC = () => {
         presentacion: '',
         categoria: 'papeleria',
         valorCosto: 0,
-        margen: 25
+        margen: 25,
+        includeIva: false,
+        ivaRate: 19,
+        includeImpConsumo: false,
+        impConsumoRate: 8,
+        includeOtrosImp: false,
+        otrosImpRate: 0,
+        includeCostosAdic: false,
+        costosAdicValue: 0,
       });
       
       toast.success('✅ Producto agregado correctamente', {
@@ -312,8 +385,146 @@ export const ProductForm: React.FC = () => {
             </div>
           </div>
 
+          {/* Sección de Impuestos y Costos Adicionales */}
+          <div className="mt-8 pt-6 border-t border-gray-200">
+            <h3 className="text-lg font-bold text-gray-800 mb-4">Impuestos y Costos Adicionales</h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* IVA */}
+              <div>
+                <label className="flex items-center text-sm font-semibold text-gray-700 mb-2">
+                  <input
+                    type="checkbox"
+                    {...register('includeIva')}
+                    className="form-checkbox h-4 w-4 text-blue-600 rounded focus:ring-blue-500 mr-2"
+                  />
+                  Incluir IVA
+                </label>
+                {watchedIncludeIva && (
+                  <input
+                    {...register('ivaRate', { valueAsNumber: true })}
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.1"
+                    className={`
+                      w-full px-4 py-3 border-2 rounded-lg transition-all duration-200 mt-2
+                      focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500
+                      ${errors.ivaRate ? 'border-red-300 bg-red-50' : 'border-gray-200'}
+                    `}
+                    placeholder="Tasa de IVA (%)"
+                  />
+                )}
+                {errors.ivaRate && watchedIncludeIva && (
+                  <div className="mt-2 flex items-center text-red-600 text-sm">
+                    <AlertCircle className="w-4 h-4 mr-1" />
+                    {errors.ivaRate.message}
+                  </div>
+                )}
+              </div>
+
+              {/* Impuesto al Consumo */}
+              <div>
+                <label className="flex items-center text-sm font-semibold text-gray-700 mb-2">
+                  <input
+                    type="checkbox"
+                    {...register('includeImpConsumo')}
+                    className="form-checkbox h-4 w-4 text-blue-600 rounded focus:ring-blue-500 mr-2"
+                  />
+                  Incluir Impuesto al Consumo
+                </label>
+                {watchedIncludeImpConsumo && (
+                  <input
+                    {...register('impConsumoRate', { valueAsNumber: true })}
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.1"
+                    className={`
+                      w-full px-4 py-3 border-2 rounded-lg transition-all duration-200 mt-2
+                      focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500
+                      ${errors.impConsumoRate ? 'border-red-300 bg-red-50' : 'border-gray-200'}
+                    `}
+                    placeholder="Tasa de Impuesto al Consumo (%)"
+                  />
+                )}
+                {errors.impConsumoRate && watchedIncludeImpConsumo && (
+                  <div className="mt-2 flex items-center text-red-600 text-sm">
+                    <AlertCircle className="w-4 h-4 mr-1" />
+                    {errors.impConsumoRate.message}
+                  </div>
+                )}
+              </div>
+
+              {/* Otros Impuestos */}
+              <div>
+                <label className="flex items-center text-sm font-semibold text-gray-700 mb-2">
+                  <input
+                    type="checkbox"
+                    {...register('includeOtrosImp')}
+                    className="form-checkbox h-4 w-4 text-blue-600 rounded focus:ring-blue-500 mr-2"
+                  />
+                  Incluir Otros Impuestos
+                </label>
+                {watchedIncludeOtrosImp && (
+                  <input
+                    {...register('otrosImpRate', { valueAsNumber: true })}
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.1"
+                    className={`
+                      w-full px-4 py-3 border-2 rounded-lg transition-all duration-200 mt-2
+                      focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500
+                      ${errors.otrosImpRate ? 'border-red-300 bg-red-50' : 'border-gray-200'}
+                    `}
+                    placeholder="Tasa de Otros Impuestos (%)"
+                  />
+                )}
+                {errors.otrosImpRate && watchedIncludeOtrosImp && (
+                  <div className="mt-2 flex items-center text-red-600 text-sm">
+                    <AlertCircle className="w-4 h-4 mr-1" />
+                    {errors.otrosImpRate.message}
+                  </div>
+                )}
+              </div>
+
+              {/* Costos Adicionales */}
+              <div>
+                <label className="flex items-center text-sm font-semibold text-gray-700 mb-2">
+                  <input
+                    type="checkbox"
+                    {...register('includeCostosAdic')}
+                    className="form-checkbox h-4 w-4 text-blue-600 rounded focus:ring-blue-500 mr-2"
+                  />
+                  Incluir Costos Adicionales
+                </label>
+                {watchedIncludeCostosAdic && (
+                  <input
+                    {...register('costosAdicValue', { valueAsNumber: true })}
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    className={`
+                      w-full px-4 py-3 border-2 rounded-lg transition-all duration-200 mt-2
+                      focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500
+                      ${errors.costosAdicValue ? 'border-red-300 bg-red-50' : 'border-gray-200'}
+                    `}
+                    placeholder="Valor de Costos Adicionales (COP)"
+                  />
+                )}
+                {errors.costosAdicValue && watchedIncludeCostosAdic && (
+                  <div className="mt-2 flex items-center text-red-600 text-sm">
+                    <AlertCircle className="w-4 h-4 mr-1" />
+                    {errors.costosAdicValue.message}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
           {/* Valor Total Calculado */}
-          {(watchedCosto > 0 || watchedMargen > 0) && (
+          {(watchedCosto > 0 || watchedMargen > 0 || watchedIncludeIva || watchedIncludeImpConsumo || watchedIncludeOtrosImp || watchedIncludeCostosAdic) && (
             <div className="mt-6 p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg border border-blue-200">
               <div className="flex items-center justify-between">
                 <div className="flex items-center">
@@ -326,6 +537,10 @@ export const ProductForm: React.FC = () => {
                   </p>
                   <p className="text-xs text-blue-600">
                     Costo: {formatCurrency(watchedCosto || 0)} + Margen: {(watchedMargen || 0).toFixed(1)}%
+                    {watchedIncludeIva && ` + IVA: ${(watchedIvaRate || 0).toFixed(1)}%`}
+                    {watchedIncludeImpConsumo && ` + Imp. Consumo: ${(watchedImpConsumoRate || 0).toFixed(1)}%`}
+                    {watchedIncludeOtrosImp && ` + Otros Imp.: ${(watchedOtrosImpRate || 0).toFixed(1)}%`}
+                    {watchedIncludeCostosAdic && ` + Costos Adic.: ${formatCurrency(watchedCostosAdicValue || 0)}`}
                   </p>
                 </div>
               </div>
@@ -420,13 +635,13 @@ export const ProductForm: React.FC = () => {
           <div className="mt-4">
             <div className="flex justify-between text-xs text-gray-600 mb-1">
               <span>Progreso del formulario</span>
-              <span>{Math.round((Object.keys(watch()).filter(key => watch(key as keyof ProductFormData)).length / 6) * 100)}%</span>
+              <span>{Math.round((Object.keys(watch()).filter(key => watch(key as keyof ProductFormData)).length / 10) * 100)}%</span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2">
               <div
                 className="bg-gradient-to-r from-green-500 to-blue-600 h-2 rounded-full transition-all duration-300"
                 style={{
-                  width: `${Math.round((Object.keys(watch()).filter(key => watch(key as keyof ProductFormData)).length / 6) * 100)}%`
+                  width: `${Math.round((Object.keys(watch()).filter(key => watch(key as keyof ProductFormData)).length / 10) * 100)}%`
                 }}
               ></div>
             </div>
@@ -449,6 +664,7 @@ export const ProductForm: React.FC = () => {
               <li>• <strong>Presentación clara:</strong> Especifica unidad, peso o volumen</li>
               <li>• <strong>Margen recomendado:</strong> Entre 15% - 30% para productos generales</li>
               <li>• <strong>Categorías:</strong> Ayudan a organizar y generar reportes específicos</li>
+              <li>• <strong>Impuestos y Costos:</strong> Habilita y configura los valores para un cálculo de precio más preciso.</li>
             </ul>
           </div>
         </div>

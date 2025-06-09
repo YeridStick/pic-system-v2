@@ -13,7 +13,7 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import { useUIStore } from '../../stores/uiStore';
-import type { Product } from '../../types';
+import type { Product, TaxConfig, AdditionalCost } from '../../types';
 import { formatCurrency, formatPercentage } from '../../utils/formatters';
 import { ProductCategoryBadge } from '../common/ProductCategoryBadge';
 import { Button } from '../common/Button';
@@ -54,6 +54,25 @@ export const ProductViewModal: React.FC = () => {
   const subtotalCosto = product.valorCosto * product.cantidad;
   const subtotalTotal = product.valorTotal * product.cantidad;
   const gananciaBruta = subtotalTotal - subtotalCosto;
+
+  // Helper para obtener la tasa de impuesto por tipo
+  const getTaxRate = (type: TaxConfig['type']) => {
+    return product.impuestos?.find(t => t.type === type && t.enabled)?.rate ?? 0;
+  };
+
+  // Helper para obtener el total de otros impuestos
+  const getOtherTaxes = () => {
+    return product.impuestos
+      ?.filter(t => t.type !== 'iva' && t.type !== 'consumo' && t.enabled) || [];
+  };
+
+  // Helper para obtener los costos adicionales
+  const getAdditionalCosts = () => {
+    return product.costosAdicionales?.filter(c => c.enabled) || [];
+  };
+
+  const hasTaxesOrCosts = (product.impuestos && product.impuestos.some(t => t.enabled)) ||
+                          (product.costosAdicionales && product.costosAdicionales.some(c => c.enabled));
 
   return (
     <>
@@ -212,6 +231,48 @@ export const ProductViewModal: React.FC = () => {
                     </div>
                   </div>
                 </div>
+
+                {/* Impuestos y Costos Adicionales */}
+                {hasTaxesOrCosts && (
+                  <div className="bg-yellow-50 rounded-xl p-4 border border-yellow-200">
+                    <h3 className="text-lg font-semibold text-yellow-900 mb-4 flex items-center">
+                      <Tag className="w-5 h-5 mr-2" />
+                      Impuestos y Costos Adicionales
+                    </h3>
+                    <div className="space-y-4">
+                      {getTaxRate('iva') > 0 && (
+                        <InfoField
+                          icon={<CheckCircle2 className="w-5 h-5 text-yellow-600" />}
+                          label="IVA"
+                          value={formatPercentage(getTaxRate('iva'))}
+                        />
+                      )}
+                      {getTaxRate('consumo') > 0 && (
+                        <InfoField
+                          icon={<CheckCircle2 className="w-5 h-5 text-yellow-600" />}
+                          label="Impuesto al Consumo"
+                          value={formatPercentage(getTaxRate('consumo'))}
+                        />
+                      )}
+                      {getOtherTaxes().length > 0 && getOtherTaxes().map((tax, i) => (
+                        <InfoField
+                          key={i}
+                          icon={<CheckCircle2 className="w-5 h-5 text-yellow-600" />}
+                          label={`Otro Impuesto (${tax.description})`}
+                          value={formatPercentage(tax.rate)}
+                        />
+                      ))}
+                      {getAdditionalCosts().length > 0 && getAdditionalCosts().map((cost: AdditionalCost, i) => (
+                        <InfoField
+                          key={i}
+                          icon={<CheckCircle2 className="w-5 h-5 text-yellow-600" />}
+                          label={`Costo Adicional (${cost.description})`}
+                          value={formatCurrency(cost.value)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Fórmulas aplicadas */}
                 <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">

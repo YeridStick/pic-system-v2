@@ -1,21 +1,35 @@
+export type ProductCategory = 'papeleria' | 'alimentos' | 'semillas' | 'aseo' | 'otros';
+
+export interface TaxConfig {
+  enabled: boolean;
+  type: 'iva' | 'consumo' | 'retencion' | 'industria' | 'transaccion';
+  rate: number;
+  description: string;
+}
+
+export interface AdditionalCost {
+  enabled: boolean;
+  type: 'registro' | 'codigo' | 'certificacion' | 'transporte' | 'distribucion';
+  value: number;
+  description: string;
+}
+
 export interface Product {
   id: string;
   item: number;
   producto: string;
-  cantidad: number;
   presentacion: string;
-  categoria: ProductCategory;
+  cantidad: number;
   valorCosto: number;
   margen: number;
   valorTotal: number;
+  categoria: ProductCategory;
+  impuestos?: TaxConfig[];
+  costosAdicionales?: AdditionalCost[];
+  observaciones?: string;
+  fechaCreacion: string;
+  fechaActualizacion: string;
 }
-
-export type ProductCategory = 
-  | 'papeleria' 
-  | 'alimentos' 
-  | 'semillas' 
-  | 'aseo' 
-  | 'otros';
 
 export interface ProductFormData {
   producto: string;
@@ -24,4 +38,6 @@ export interface ProductFormData {
   categoria: ProductCategory;
   valorCosto: number;
   margen: number;
+  impuestos?: TaxConfig[];
+  costosAdicionales?: AdditionalCost[];
 } 

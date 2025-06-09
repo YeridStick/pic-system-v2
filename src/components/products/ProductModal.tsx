@@ -1,6 +1,6 @@
 // src/components/products/ProductModal.tsx
 import React, { useEffect, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { 
@@ -12,7 +12,8 @@ import {
   DollarSign,
   TrendingUp,
   AlertCircle,
-  CheckCircle2
+  CheckCircle2,
+  Tag
 } from 'lucide-react';
 import { useProductStore } from '../../stores/productStore';
 import { useUIStore } from '../../stores/uiStore';
@@ -21,7 +22,21 @@ import { calculateTotalValue } from '../../utils/calculations';
 import { formatCurrency } from '../../utils/formatters';
 import { Button } from '../common/Button';
 import toast from 'react-hot-toast';
-import type { Product, ProductFormData, ProductCategory as ProductCategoryType } from '../../types';
+import type { Product, ProductFormData, ProductCategory as ProductCategoryType, TaxConfig, AdditionalCost } from '../../types';
+
+const taxConfigSchema = z.object({
+  enabled: z.boolean(),
+  type: z.enum(['iva', 'consumo', 'retencion', 'industria', 'transaccion']),
+  rate: z.number().min(0).max(100),
+  description: z.string().min(1).max(50),
+});
+
+const additionalCostSchema = z.object({
+  enabled: z.boolean(),
+  type: z.enum(['registro', 'codigo', 'certificacion', 'transporte', 'distribucion']),
+  value: z.number().min(0),
+  description: z.string().min(1).max(50),
+});
 
 const editSchema = z.object({
   producto: z.string()
@@ -42,6 +57,8 @@ const editSchema = z.object({
   margen: z.number()
     .min(0, 'El margen no puede ser negativo')
     .max(1000, 'El margen no puede exceder 1000%'),
+  impuestos: z.array(taxConfigSchema).optional(),
+  costosAdicionales: z.array(additionalCostSchema).optional(),
 });
 
 export const ProductModal: React.FC = () => {
@@ -56,24 +73,37 @@ export const ProductModal: React.FC = () => {
     reset,
     watch,
     setValue,
+    control,
     formState: { errors, isValid },
   } = useForm<ProductFormData>({
     resolver: zodResolver(editSchema),
     mode: 'onChange'
   });
 
+  const { fields: taxFields, append: appendTax, remove: removeTax } = useFieldArray({
+    control,
+    name: 'impuestos'
+  });
+
+  const { fields: costFields, append: appendCost, remove: removeCost } = useFieldArray({
+    control,
+    name: 'costosAdicionales'
+  });
+
   const valorCosto = watch('valorCosto');
   const margen = watch('margen');
+  const impuestos = watch('impuestos');
+  const costosAdicionales = watch('costosAdicionales');
 
   // Calcular valor total en tiempo real
   useEffect(() => {
     if (valorCosto > 0 && margen >= 0) {
-      const total = calculateTotalValue(valorCosto, margen);
+      const total = calculateTotalValue(valorCosto, margen, impuestos, costosAdicionales);
       setCalculatedTotal(total);
     } else {
       setCalculatedTotal(0);
     }
-  }, [valorCosto, margen]);
+  }, [valorCosto, margen, impuestos, costosAdicionales]);
 
   // Cargar datos del producto cuando se abre el modal
   useEffect(() => {
@@ -86,6 +116,22 @@ export const ProductModal: React.FC = () => {
         categoria: product.categoria,
         valorCosto: product.valorCosto,
         margen: product.margen,
+        impuestos: product.impuestos || [],
+        costosAdicionales: product.costosAdicionales || [],
+      });
+    } else {
+      // Resetear a valores por defecto si se abre para un nuevo producto (no hay 'modal.data')
+      reset({
+        impuestos: [
+          { enabled: false, type: 'iva', rate: 19, description: 'IVA' },
+          { enabled: false, type: 'consumo', rate: 8, description: 'Imp. Consumo' },
+          { enabled: false, type: 'retencion', rate: 0, description: 'Retención en la fuente' },
+        ],
+        costosAdicionales: [
+          { enabled: false, type: 'registro', value: 0, description: 'Registro Sanitario' },
+          { enabled: false, type: 'codigo', value: 0, description: 'Código de Barras' },
+          { enabled: false, type: 'transporte', value: 0, description: 'Transporte' },
+        ],
       });
     }
   }, [modal, reset]);
@@ -117,7 +163,7 @@ export const ProductModal: React.FC = () => {
     try {
       const updatedData = {
         ...data,
-        valorTotal: calculateTotalValue(data.valorCosto, data.margen)
+        valorTotal: calculateTotalValue(data.valorCosto, data.margen, data.impuestos, data.costosAdicionales)
       };
       
       updateProduct(modal.data.id, updatedData);
@@ -295,8 +341,165 @@ export const ProductModal: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Información financiera y resumen */}
+                {/* Segunda columna: Impuestos, Costos Adicionales e Información financiera */}
                 <div className="space-y-6">
+                  {/* Impuestos */}
+                  <div className="bg-yellow-50 rounded-xl p-4 border border-yellow-200">
+                    <h3 className="text-lg font-semibold text-yellow-900 mb-4 flex items-center">
+                      <Tag className="w-5 h-5 mr-2" />
+                      Configuración de Impuestos
+                    </h3>
+                    <div className="space-y-4">
+                      {taxFields.map((field: TaxConfig, index: number) => (
+                        <div key={`tax-${index}`} className="bg-white rounded-lg p-4 border border-yellow-200">
+                          <div className="flex items-center justify-between mb-3">
+                            <label className="flex items-center text-sm font-semibold text-yellow-800">
+                              <input
+                                type="checkbox"
+                                {...register(`impuestos.${index}.enabled`)}
+                                className="mr-2 w-4 h-4 text-yellow-600 bg-gray-100 border-gray-300 rounded focus:ring-yellow-500"
+                              />
+                              {field.description || field.type}
+                            </label>
+                            {field.type !== 'iva' && field.type !== 'consumo' && (
+                              <button
+                                type="button"
+                                onClick={() => removeTax(index)}
+                                className="text-red-500 hover:text-red-700 text-sm"
+                              >
+                                Eliminar
+                              </button>
+                            )}
+                          </div>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700 mb-1">Tipo</label>
+                              <select
+                                {...register(`impuestos.${index}.type`)}
+                                className="w-full px-3 py-2 border rounded-md bg-gray-50 text-gray-700 text-sm"
+                                disabled={field.type === 'iva' || field.type === 'consumo'}
+                              >
+                                <option value="iva">IVA</option>
+                                <option value="consumo">Impuesto al Consumo</option>
+                                <option value="retencion">Retención en la fuente</option>
+                                <option value="industria">Impuesto de Industria y Comercio</option>
+                                <option value="transaccion">Impuesto a las Transacciones</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700 mb-1">Tasa (%)</label>
+                              <input
+                                {...register(`impuestos.${index}.rate`, { valueAsNumber: true })}
+                                type="number"
+                                min="0"
+                                max="100"
+                                step="0.01"
+                                className="w-full px-3 py-2 border rounded-md bg-gray-50 text-gray-700 text-sm"
+                                disabled={!watch(`impuestos.${index}.enabled`)}
+                              />
+                            </div>
+                          </div>
+                          <div className="mt-3">
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Descripción</label>
+                            <input
+                              {...register(`impuestos.${index}.description`)}
+                              type="text"
+                              className="w-full px-3 py-2 border rounded-md bg-gray-50 text-gray-700 text-sm"
+                              placeholder="Descripción del impuesto"
+                              disabled={field.type === 'iva' || field.type === 'consumo'}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                      <Button
+                        type="button"
+                        onClick={() => appendTax({ enabled: false, type: 'retencion', rate: 0, description: 'Nuevo Impuesto' })}
+                        variant="secondary"
+                        size="sm"
+                      >
+                        + Añadir Otro Impuesto
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Costos Adicionales */}
+                  <div className="bg-orange-50 rounded-xl p-4 border border-orange-200">
+                    <h3 className="text-lg font-semibold text-orange-900 mb-4 flex items-center">
+                      <DollarSign className="w-5 h-5 mr-2" />
+                      Costos Operacionales Adicionales
+                    </h3>
+                    <div className="space-y-4">
+                      {costFields.map((field: AdditionalCost, index: number) => (
+                        <div key={`cost-${index}`} className="bg-white rounded-lg p-4 border border-orange-200">
+                          <div className="flex items-center justify-between mb-3">
+                            <label className="flex items-center text-sm font-semibold text-orange-800">
+                              <input
+                                type="checkbox"
+                                {...register(`costosAdicionales.${index}.enabled`)}
+                                className="mr-2 w-4 h-4 text-orange-600 bg-gray-100 border-gray-300 rounded focus:ring-orange-500"
+                              />
+                              {field.description || field.type}
+                            </label>
+                            {field.type !== 'registro' && field.type !== 'codigo' && field.type !== 'transporte' && (
+                              <button
+                                type="button"
+                                onClick={() => removeCost(index)}
+                                className="text-red-500 hover:text-red-700 text-sm"
+                              >
+                                Eliminar
+                              </button>
+                            )}
+                          </div>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700 mb-1">Tipo</label>
+                              <select
+                                {...register(`costosAdicionales.${index}.type`)}
+                                className="w-full px-3 py-2 border rounded-md bg-gray-50 text-gray-700 text-sm"
+                                disabled={field.type === 'registro' || field.type === 'codigo' || field.type === 'transporte'}
+                              >
+                                <option value="registro">Registro Sanitario</option>
+                                <option value="codigo">Código de Barras</option>
+                                <option value="certificacion">Certificación</option>
+                                <option value="transporte">Transporte</option>
+                                <option value="distribucion">Distribución</option>
+                              </select>
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-700 mb-1">Valor (COP)</label>
+                              <input
+                                {...register(`costosAdicionales.${index}.value`, { valueAsNumber: true })}
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                className="w-full px-3 py-2 border rounded-md bg-gray-50 text-gray-700 text-sm"
+                                disabled={!watch(`costosAdicionales.${index}.enabled`)}
+                              />
+                            </div>
+                          </div>
+                          <div className="mt-3">
+                            <label className="block text-xs font-medium text-gray-700 mb-1">Descripción</label>
+                            <input
+                              {...register(`costosAdicionales.${index}.description`)}
+                              type="text"
+                              className="w-full px-3 py-2 border rounded-md bg-gray-50 text-gray-700 text-sm"
+                              placeholder="Descripción del costo"
+                              disabled={field.type === 'registro' || field.type === 'codigo' || field.type === 'transporte'}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                      <Button
+                        type="button"
+                        onClick={() => appendCost({ enabled: false, type: 'certificacion', value: 0, description: 'Nuevo Costo' })}
+                        variant="secondary"
+                        size="sm"
+                      >
+                        + Añadir Otro Costo
+                      </Button>
+                    </div>
+                  </div>
+
                   {/* Información financiera */}
                   <div className="bg-green-50 rounded-xl p-4 border border-green-200">
                     <h3 className="text-lg font-semibold text-green-900 mb-4 flex items-center">
@@ -367,10 +570,10 @@ export const ProductModal: React.FC = () => {
                         {formatCurrency(calculatedTotal)}
                       </p>
                       <p className="text-xs text-gray-600 mt-1">
-                        Costo: {formatCurrency(valorCosto || 0)} + Margen: {(margen || 0).toFixed(1)}%
+                        Costo: {formatCurrency(valorCosto || 0)} + Margen: {(margen || 0).toFixed(1)}% {impuestos && `+ Impuestos: ${impuestos.filter(t => t.enabled).reduce((sum, t) => sum + t.rate, 0).toFixed(1)}%`} {costosAdicionales && `+ Costos Adic.: ${formatCurrency(costosAdicionales.filter(c => c.enabled).reduce((sum, c) => sum + c.value, 0))}`}
                       </p>
                       <small className="text-gray-500 text-xs mt-2 block">
-                        Fórmula: Valor Costo × (1 + Margen/100)
+                        Fórmula: Valor Costo × (1 + Margen/100 + Impuestos/100) + Costos Adic.
                       </small>
                     </div>
                   </div>

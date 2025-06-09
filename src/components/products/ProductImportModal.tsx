@@ -175,7 +175,11 @@ export const ProductImportModal: React.FC = () => {
         categoria: "papeleria",
         valorCosto: 2500,
         margen: 25,
-        valorTotal: 3125
+        valorTotal: 3125,
+        fechaCreacion: new Date().toISOString(),
+        fechaActualizacion: new Date().toISOString(),
+        impuestos: [],
+        costosAdicionales: [],
       },
       {
         id: "sample_2",
@@ -186,7 +190,11 @@ export const ProductImportModal: React.FC = () => {
         categoria: "alimentos",
         valorCosto: 1800,
         margen: 30,
-        valorTotal: 2340
+        valorTotal: 2340,
+        fechaCreacion: new Date().toISOString(),
+        fechaActualizacion: new Date().toISOString(),
+        impuestos: [],
+        costosAdicionales: [],
       }
     ];
 

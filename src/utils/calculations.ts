@@ -1,12 +1,33 @@
-import type { Product, CalculationInput, BudgetSummary, BudgetStatistics, ProductCategory } from '../types';
+import type { Product, CalculationInput, BudgetSummary, BudgetStatistics, ProductCategory, TaxConfig, AdditionalCost } from '../types';
 
 /**
- * Calcula el valor total aplicando el margen sobre el costo
- * Fórmula: Valor Total = Valor Costo × (1 + Margen/100)
+ * Calcula el valor total aplicando el margen sobre el costo, impuestos y costos adicionales.
+ * Fórmula: Valor Total = (Valor Costo × (1 + Margen/100)) × (1 + (IVA + Imp. Consumo + Otros Imp.) / 100) + Costos Adicionales
  */
-export const calculateTotalValue = (valorCosto: number, margen: number): number => {
+export const calculateTotalValue = (
+  valorCosto: number,
+  margen: number,
+  impuestos: TaxConfig[] = [],
+  costosAdicionales: AdditionalCost[] = []
+): number => {
   if (valorCosto <= 0) return 0;
-  return valorCosto * (1 + margen / 100);
+
+  const valorConMargen = valorCosto * (1 + margen / 100);
+
+  const ivaRate = impuestos.find(t => t.type === 'iva' && t.enabled)?.rate || 0;
+  const impConsumoRate = impuestos.find(t => t.type === 'consumo' && t.enabled)?.rate || 0;
+  const otrosImpuestosRate = impuestos
+    .filter(t => t.type !== 'iva' && t.type !== 'consumo' && t.enabled)
+    .reduce((sum, t) => sum + t.rate, 0);
+
+  const totalImpuestosRate = ivaRate + impConsumoRate + otrosImpuestosRate;
+  const valorConImpuestos = valorConMargen * (1 + totalImpuestosRate / 100);
+
+  const totalCostosAdicionales = costosAdicionales
+    .filter(c => c.enabled)
+    .reduce((sum, c) => sum + c.value, 0);
+
+  return valorConImpuestos + totalCostosAdicionales;
 };
 
 /**

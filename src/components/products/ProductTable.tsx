@@ -23,6 +23,24 @@ import { Button } from '../common/Button';
 type SortField = 'item' | 'producto' | 'valorCosto' | 'margen' | 'valorTotal' | 'cantidad';
 type SortDirection = 'asc' | 'desc';
 
+// Define column configurations
+// const COLUMNS = [
+//   { key: 'item', label: 'Item', sortable: true },
+//   { key: 'producto', label: 'Producto', sortable: true },
+//   { key: 'cantidad', label: 'Cant.', sortable: true },
+//   { key: 'presentacion', label: 'Presentación', sortable: false },
+//   { key: 'categoria', label: 'Categoría', sortable: false },
+//   { key: 'valorCosto', label: 'Valor Costo', sortable: true },
+//   { key: 'margen', label: 'Margen %', sortable: true },
+//   { key: 'iva', label: 'IVA %', sortable: false },
+//   { key: 'impConsumo', label: 'Imp. Consumo %', sortable: false },
+//   { key: 'otrosImp', label: 'Otros Imp. %', sortable: false },
+//   { key: 'costosAdic', label: 'Costos Adic.', sortable: false },
+//   { key: 'valorTotal', label: 'Valor Total', sortable: true },
+//   { key: 'subtotal', label: 'Subtotal', sortable: false },
+//   { key: 'acciones', label: 'Acciones', sortable: false }
+// ];
+
 export const ProductTable: React.FC = () => {
   const { getFilteredProducts, deleteProduct } = useProductStore();
   const { openModal } = useUIStore();
@@ -157,6 +175,28 @@ export const ProductTable: React.FC = () => {
     URL.revokeObjectURL(url);
   };
 
+  // Helper to get tax rate
+  // const getTaxRate = (product: Product, type: TaxConfig['type']) => {
+  //   return product.impuestos?.find(t => t.type === type && t.enabled)?.rate ?? 0;
+  // };
+
+  // Helper to get total other taxes
+  // const getOtherTaxesTotal = (product: Product) => {
+  //   return product.impuestos
+  //     ?.filter(t => t.type !== 'iva' && t.type !== 'consumo' && t.enabled)
+  //     .reduce((sum, t) => sum + t.rate, 0) ?? 0;
+  // };
+
+  // Helper to get total additional costs
+  // const getAdditionalCostsTotal = (product: Product) => {
+  //   if (!product.costosAdicionales || !Array.isArray(product.costosAdicionales)) {
+  //     return 0;
+  //   }
+  //   return product.costosAdicionales
+  //     .filter(c => c.enabled)
+  //     .reduce((sum, c) => sum + c.value, 0);
+  // };
+
   if (productos.length === 0) {
     return (
       <div className="bg-white rounded-xl shadow-soft border border-gray-100 p-12 text-center">
@@ -253,7 +293,7 @@ export const ProductTable: React.FC = () => {
                   />
                 </th>
                 
-                {[
+                {[ // This array is correctly defined
                   { key: 'item', label: 'Item', sortable: true },
                   { key: 'producto', label: 'Producto', sortable: true },
                   { key: 'cantidad', label: 'Cant.', sortable: true },
@@ -264,7 +304,7 @@ export const ProductTable: React.FC = () => {
                   { key: 'valorTotal', label: 'Valor Total', sortable: true },
                   { key: 'subtotal', label: 'Subtotal', sortable: false },
                   { key: 'acciones', label: 'Acciones', sortable: false }
-                ].map((column) => (
+                ].map(column => (
                   <th 
                     key={column.key}
                     className={`px-4 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider ${
@@ -284,11 +324,11 @@ export const ProductTable: React.FC = () => {
                 ))}
               </tr>
             </thead>
-            
+
             <tbody className="bg-white divide-y divide-gray-100">
               {sortedProducts.map((producto, index) => (
-                <tr 
-                  key={producto.id} 
+                <tr
+                  key={producto.id}
                   className={`
                     transition-all duration-200 hover:bg-blue-50 group
                     ${selectedProducts.has(producto.id) ? 'bg-blue-50 border-l-4 border-blue-500' : ''}

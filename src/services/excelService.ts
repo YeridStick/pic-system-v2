@@ -498,7 +498,11 @@ export class ExcelService {
         categoria: "papeleria" as const,
         valorCosto: 2500,
         margen: 25,
-        valorTotal: 3125
+        valorTotal: 3125,
+        fechaCreacion: new Date().toISOString(),
+        fechaActualizacion: new Date().toISOString(),
+        impuestos: [],
+        costosAdicionales: [],
       },
       {
         id: "sample_2",
@@ -509,7 +513,11 @@ export class ExcelService {
         categoria: "alimentos" as const,
         valorCosto: 1800,
         margen: 30,
-        valorTotal: 2340
+        valorTotal: 2340,
+        fechaCreacion: new Date().toISOString(),
+        fechaActualizacion: new Date().toISOString(),
+        impuestos: [],
+        costosAdicionales: [],
       },
       {
         id: "sample_3",
@@ -520,7 +528,11 @@ export class ExcelService {
         categoria: "semillas" as const,
         valorCosto: 1200,
         margen: 40,
-        valorTotal: 1680
+        valorTotal: 1680,
+        fechaCreacion: new Date().toISOString(),
+        fechaActualizacion: new Date().toISOString(),
+        impuestos: [],
+        costosAdicionales: [],
       }
     ];
 

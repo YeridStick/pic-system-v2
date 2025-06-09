@@ -197,6 +197,10 @@ export class ExcelExportService {
       'PRESENTACION',
       'Valor costo',
       'Margen %',
+      'IVA %',
+      'Imp. Consumo %',
+      'Otros Imp. %',
+      'Costos Adic.',
       'VALOR TOTAL',
       'SUBTOTAL',
     ];
@@ -242,6 +246,21 @@ export class ExcelExportService {
     this.productos.forEach((producto, index) => {
       const row = currentRow + index;
 
+      // Calcular impuestos y costos adicionales
+      const iva = producto.impuestos?.find(t => t.type === 'iva' && t.enabled)?.rate || 0;
+      const impConsumo = producto.impuestos?.find(t => t.type === 'consumo' && t.enabled)?.rate || 0;
+      const otrosImp = producto.impuestos?.filter(t => t.type !== 'iva' && t.type !== 'consumo' && t.enabled)
+        .reduce((sum, t) => sum + t.rate, 0) || 0;
+      const costosAdic = producto.costosAdicionales?.filter(c => c.enabled)
+        .reduce((sum, c) => sum + c.value, 0) || 0;
+
+      // Calcular valor total con impuestos y costos
+      const subtotal = producto.valorCosto * producto.cantidad;
+      const valorIva = subtotal * (iva / 100);
+      const valorImpConsumo = subtotal * (impConsumo / 100);
+      const valorOtrosImp = subtotal * (otrosImp / 100);
+      const valorTotal = subtotal + valorIva + valorImpConsumo + valorOtrosImp + costosAdic;
+
       // Datos del producto
       const rowData = [
         producto.item,
@@ -249,9 +268,13 @@ export class ExcelExportService {
         producto.cantidad,
         producto.presentacion,
         producto.valorCosto,
-        producto.margen / 100, // Como decimal para porcentaje
-        producto.valorTotal,
-        producto.valorTotal * producto.cantidad,
+        producto.margen / 100,
+        iva,
+        impConsumo,
+        otrosImp,
+        costosAdic,
+        valorTotal / producto.cantidad,
+        valorTotal,
       ];
 
       rowData.forEach((dato, colIndex) => {
@@ -291,11 +314,11 @@ export class ExcelExportService {
 
         // Formato de moneda y porcentajes
         if (this.config.currencyFormat) {
-          if (colIndex === 4 || colIndex === 6 || colIndex === 7) {
+          if ([4, 9, 10, 11].includes(colIndex)) {
             // Columnas de moneda
             cell.numFmt = '"$"#,##0.00';
-          } else if (colIndex === 5) {
-            // Margen %
+          } else if ([5, 6, 7, 8].includes(colIndex)) {
+            // Columnas de porcentaje
             cell.numFmt = '0.00%';
           }
         }
@@ -324,12 +347,39 @@ export class ExcelExportService {
         (sum, p) => sum + p.valorCosto * p.cantidad,
         0
       );
-      const totalBudget = this.productos.reduce(
-        (sum, p) => sum + p.valorTotal * p.cantidad,
-        0
-      );
+      const totalIva = this.productos.reduce((sum, p) => {
+        const iva = p.impuestos?.find(t => t.type === 'iva' && t.enabled)?.rate || 0;
+        return sum + (p.valorCosto * p.cantidad * (iva / 100));
+      }, 0);
+      const totalImpConsumo = this.productos.reduce((sum, p) => {
+        const imp = p.impuestos?.find(t => t.type === 'consumo' && t.enabled)?.rate || 0;
+        return sum + (p.valorCosto * p.cantidad * (imp / 100));
+      }, 0);
+      const totalOtrosImp = this.productos.reduce((sum, p) => {
+        const otros = p.impuestos?.filter(t => t.type !== 'iva' && t.type !== 'consumo' && t.enabled)
+          .reduce((s, t) => s + t.rate, 0) || 0;
+        return sum + (p.valorCosto * p.cantidad * (otros / 100));
+      }, 0);
+      const totalCostosAdic = this.productos.reduce((sum, p) => {
+        return sum + (p.costosAdicionales?.filter(c => c.enabled)
+          .reduce((s, c) => s + c.value, 0) || 0);
+      }, 0);
+      const totalBudget = totalCost + totalIva + totalImpConsumo + totalOtrosImp + totalCostosAdic;
 
-      const totalsData = ['', 'TOTALES', '', '', totalCost, '', '', totalBudget];
+      const totalsData = [
+        '',
+        'TOTALES',
+        '',
+        '',
+        totalCost,
+        '',
+        totalIva,
+        totalImpConsumo,
+        totalOtrosImp,
+        totalCostosAdic,
+        '',
+        totalBudget
+      ];
 
       totalsData.forEach((dato, colIndex) => {
         const cell = worksheet.getCell(currentRow, colIndex + 1);
@@ -362,7 +412,7 @@ export class ExcelExportService {
         };
 
         // Formato de moneda para totales
-        if (this.config.currencyFormat && (colIndex === 4 || colIndex === 7)) {
+        if (this.config.currencyFormat && [4, 6, 7, 8, 9, 11].includes(colIndex)) {
           cell.numFmt = '"$"#,##0.00';
         }
       });
