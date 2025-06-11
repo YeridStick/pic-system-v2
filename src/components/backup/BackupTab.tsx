@@ -608,7 +608,7 @@ export const BackupTab: React.FC = () => {
       </div>
 
       {/* Acciones principales */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
         {/* Respaldo completo */}
         <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
           <div className="bg-gradient-to-r from-green-500 to-emerald-600 p-6 text-white">
@@ -713,7 +713,7 @@ export const BackupTab: React.FC = () => {
       </div>
 
       {/* Estadísticas de almacenamiento */}
-      <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden mt-6">
         <div className="bg-gradient-to-r from-indigo-500 to-blue-600 p-6 text-white">
           <div className="flex items-center">
             <div className="p-3 bg-white/20 backdrop-blur-sm rounded-lg mr-4">
@@ -811,7 +811,7 @@ export const BackupTab: React.FC = () => {
       </div>
 
       {/* Información del sistema */}
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl p-6 border border-blue-200">
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl p-6 border border-blue-200 mt-6">
         <div className="flex items-start">
           <div className="p-3 bg-blue-100 rounded-lg mr-4 flex-shrink-0">
             <HardDrive className="w-6 h-6 text-blue-600" />
@@ -858,7 +858,7 @@ export const BackupTab: React.FC = () => {
       )}
 
       {/* Tips finales */}
-      <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-2xl p-6 border border-green-200">
+      <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-2xl p-6 border border-green-200 mt-6">
         <div className="flex items-start">
           <div className="p-3 bg-green-100 rounded-lg mr-4 flex-shrink-0">
             <CheckCircle className="w-6 h-6 text-green-600" />
