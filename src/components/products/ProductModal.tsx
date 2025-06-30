@@ -17,12 +17,11 @@ import {
 } from 'lucide-react';
 import { useProductStore } from '../../stores/productStore';
 import { useUIStore } from '../../stores/uiStore';
-import { ProductCategory } from '../common/ProductCategory';
 import { calculateTotalValue } from '../../utils/calculations';
 import { formatCurrency } from '../../utils/formatters';
 import { Button } from '../common/Button';
 import toast from 'react-hot-toast';
-import type { Product, ProductFormData, ProductCategory as ProductCategoryType, TaxConfig, AdditionalCost } from '../../types';
+import type { Product, ProductFormData, TaxConfig, AdditionalCost } from '../../types';
 
 const taxConfigSchema = z.object({
   enabled: z.boolean(),
@@ -48,9 +47,7 @@ const editSchema = z.object({
   presentacion: z.string()
     .min(2, 'La presentación debe tener al menos 2 caracteres')
     .max(50, 'La presentación no puede exceder 50 caracteres'),
-  categoria: z.enum(['papeleria', 'alimentos', 'semillas', 'aseo', 'otros'], {
-    errorMap: () => ({ message: 'Debe seleccionar una categoría válida' }),
-  }),
+  categoria: z.string().min(2, 'Debe seleccionar o escribir una categoría').max(50, 'La categoría no puede exceder 50 caracteres'),
   valorCosto: z.number()
     .min(0.01, 'El valor costo debe ser mayor a 0')
     .max(999999999, 'El valor es demasiado alto'),
@@ -72,7 +69,6 @@ export const ProductModal: React.FC = () => {
     handleSubmit,
     reset,
     watch,
-    setValue,
     control,
     formState: { errors, isValid },
   } = useForm<ProductFormData>({
@@ -325,10 +321,15 @@ export const ProductModal: React.FC = () => {
                         <label className="block text-sm font-semibold text-blue-700 mb-2">
                           Categoría *
                         </label>
-                        <ProductCategory
-                          value={watch('categoria')}
-                          onChange={(value: ProductCategoryType) => setValue('categoria', value, { shouldValidate: true })}
-                          error={errors.categoria?.message}
+                        <input
+                          {...register('categoria')}
+                          type="text"
+                          className={`
+                            w-full px-4 py-3 border-2 rounded-lg transition-all duration-200
+                            focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500
+                            ${errors.categoria ? 'border-red-300 bg-red-50' : 'border-gray-200'}
+                          `}
+                          placeholder="Debe seleccionar o escribir una categoría"
                         />
                         {errors.categoria && (
                           <div className="mt-2 flex items-center text-red-600 text-sm">
