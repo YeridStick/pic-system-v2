@@ -7,6 +7,7 @@ import {
   applyProportionalAdjustment,
   applyFixedMargin
 } from '../utils/calculations';
+import { useAuditStore } from './auditStore';
 
 interface ProductState {
   // Estado
@@ -59,44 +60,95 @@ export const useProductStore = create<ProductState>()(
       addProduct: (productData) => {
         const newProduct: Product = {
           ...productData as Product,
-          id: `prod-${get().contadorItems}`,
+          id: ('id' in productData && productData.id) ? String(productData.id) : `prod-${get().contadorItems}`,
           item: get().contadorItems,
           valorTotal: productData.valorCosto * (1 + productData.margen / 100),
         };
-        set((state) => ({
-          productos: [...state.productos, newProduct],
-          productosOriginales: [...state.productos, newProduct],
-          contadorItems: state.contadorItems + 1,
-        }));
+        set((state) => {
+          // Auditoría: agregar producto
+          const audit = useAuditStore.getState();
+          if (audit.config.enabled) {
+            audit.addEvent({
+              type: 'product_add',
+              description: `Se agregó el producto "${newProduct.producto}"`,
+              dataBefore: null,
+              dataAfter: newProduct,
+            });
+          }
+          return {
+            productos: [...state.productos, newProduct],
+            productosOriginales: [...state.productos, newProduct],
+            contadorItems: state.contadorItems + 1,
+          };
+        });
       },
 
       updateProduct: (id, productData) => {
-        set((state) => ({
-          productos: state.productos.map((p) =>
-            p.id === id ? { ...p, ...productData } : p
-          ),
-          productosOriginales: state.productosOriginales.map((p) =>
-            p.id === id ? { ...p, ...productData } : p
-          ),
-        }));
+        set((state) => {
+          const prev = state.productos.find((p) => p.id === id);
+          const updated = prev ? { ...prev, ...productData } : undefined;
+          // Auditoría: actualizar producto
+          const audit = useAuditStore.getState();
+          if (audit.config.enabled && prev && updated) {
+            audit.addEvent({
+              type: 'product_update',
+              description: `Se editó el producto "${prev.producto}"`,
+              dataBefore: prev,
+              dataAfter: updated,
+            });
+          }
+          return {
+            productos: state.productos.map((p) =>
+              p.id === id ? { ...p, ...productData } : p
+            ),
+            productosOriginales: state.productosOriginales.map((p) =>
+              p.id === id ? { ...p, ...productData } : p
+            ),
+          };
+        });
       },
 
       deleteProduct: (id) => {
-        set((state) => ({
-          productos: state.productos.filter((p) => p.id !== id),
-          productosOriginales: state.productosOriginales.filter((p) => p.id !== id),
-        }));
+        set((state) => {
+          const prev = state.productos.find((p) => p.id === id);
+          // Auditoría: eliminar producto
+          const audit = useAuditStore.getState();
+          if (audit.config.enabled && prev) {
+            audit.addEvent({
+              type: 'product_delete',
+              description: `Se eliminó el producto "${prev.producto}"`,
+              dataBefore: prev,
+              dataAfter: null,
+            });
+          }
+          return {
+            productos: state.productos.filter((p) => p.id !== id),
+            productosOriginales: state.productosOriginales.filter((p) => p.id !== id),
+          };
+        });
       },
 
       clearAllProducts: () => {
-        set({
-          productos: [],
-          productosOriginales: [],
-          contadorItems: 1,
-          filtros: {
-            busqueda: '',
-            categoria: '',
-          },
+        set((state) => {
+          // Auditoría: borrar todos los productos
+          const audit = useAuditStore.getState();
+          if (audit.config.enabled && state.productos.length > 0) {
+            audit.addEvent({
+              type: 'products_bulk_delete',
+              description: 'Se eliminaron todos los productos',
+              dataBefore: state.productos,
+              dataAfter: [],
+            });
+          }
+          return {
+            productos: [],
+            productosOriginales: [],
+            contadorItems: 1,
+            filtros: {
+              busqueda: '',
+              categoria: '',
+            },
+          };
         });
       },
 
@@ -106,7 +158,7 @@ export const useProductStore = create<ProductState>()(
           const currentMaxItem = Math.max(...state.productos.map(p => p.item), 0);
           const processedProducts = newProducts.map((product, index) => ({
             ...product,
-            id: `${Date.now()}_${index}_${Math.random().toString(36).substr(2, 9)}`,
+            id: ('id' in product && product.id) ? String(product.id) : `${Date.now()}_${index}_${Math.random().toString(36).substr(2, 9)}`,
             item: currentMaxItem + index + 1
           }));
           return {

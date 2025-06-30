@@ -5,7 +5,8 @@ export type TabType =
   | 'formulas' 
   | 'ajustes' 
   | 'personalizacion' 
-  | 'backup';
+  | 'backup'
+  | 'api_integration';
 
 export interface NotificationOptions {
   type: 'success' | 'error' | 'warning' | 'info';
@@ -15,7 +16,7 @@ export interface NotificationOptions {
 
 export interface ModalState {
   isOpen: boolean;
-  type: 'edit' | 'delete' | 'confirm' | 'view' | 'import' | 'viewTaxDetails' | null;
+  type: 'edit' | 'delete' | 'confirm' | 'view' | 'import' | 'viewTaxDetails' | 'api_integration' | null;
   data?: Product;
 }
 

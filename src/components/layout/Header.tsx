@@ -1,6 +1,7 @@
 import React from 'react';
 import { Building2, Calendar, User, Bell, Settings } from 'lucide-react';
 import { HeaderStats } from './HeaderStats';
+import { useUIStore } from '../../stores/uiStore';
 
 export const Header: React.FC = () => {
   const currentDate = new Date().toLocaleDateString('es-CO', {
@@ -9,6 +10,7 @@ export const Header: React.FC = () => {
     month: 'long',
     day: 'numeric'
   });
+  const { openModal } = useUIStore();
 
   return (
     <header className="relative overflow-hidden">
@@ -66,7 +68,10 @@ export const Header: React.FC = () => {
                 <button className="bg-white/10 backdrop-blur-sm rounded-lg p-2 hover:bg-white/20 transition-colors group">
                   <Bell className="w-5 h-5 text-white group-hover:animate-pulse" />
                 </button>
-                <button className="bg-white/10 backdrop-blur-sm rounded-lg p-2 hover:bg-white/20 transition-colors group">
+                <button
+                  className="bg-white/10 backdrop-blur-sm rounded-lg p-2 hover:bg-white/20 transition-colors group"
+                  onClick={() => openModal('api_integration')}
+                >
                   <Settings className="w-5 h-5 text-white group-hover:rotate-12 transition-transform" />
                 </button>
               </div>

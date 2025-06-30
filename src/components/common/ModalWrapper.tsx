@@ -7,7 +7,7 @@ interface ModalWrapperProps {
   description?: string;
   icon?: React.ReactNode;
   children: React.ReactNode;
-  modalType: 'edit' | 'view' | 'import' | null;
+  modalType: 'edit' | 'view' | 'import' | 'api_integration' | null;
   maxWidthClass?: string;
 }
 

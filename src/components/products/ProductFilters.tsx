@@ -1,23 +1,28 @@
 import React from 'react';
 import { Search, Filter } from 'lucide-react';
 import { useProductStore } from '../../stores/productStore';
-import { ProductCategory } from '../common/ProductCategory';
-import type { ProductCategory as ProductCategoryType } from '../../types';
+import { PRODUCT_CATEGORIES } from '../../utils/constants';
 
 export const ProductFilters: React.FC = () => {
-  const { filtros, setFiltros } = useProductStore();
+  const { filtros, setFiltros, productos } = useProductStore();
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFiltros({ busqueda: e.target.value });
   };
 
-  const handleCategoryChange = (categoria: ProductCategoryType) => {
-    setFiltros({ categoria });
+  const handleCategoryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setFiltros({ categoria: e.target.value });
   };
 
   const handleClearFilters = () => {
     setFiltros({ busqueda: '', categoria: '' });
   };
+
+  // Obtener todas las categorías únicas (predefinidas + personalizadas)
+  const uniqueCategories = Array.from(new Set([
+    ...PRODUCT_CATEGORIES.map(c => c.value),
+    ...productos.map(p => p.categoria)
+  ]));
 
   return (
     <div className="card-modern p-4 fade-in">
@@ -36,10 +41,18 @@ export const ProductFilters: React.FC = () => {
         </div>
 
         <div className="w-full md:w-64">
-          <ProductCategory
-            value={filtros.categoria as ProductCategoryType}
+          <select
+            value={filtros.categoria}
             onChange={handleCategoryChange}
-          />
+            className="form-select w-full h-10 rounded"
+          >
+            <option value="">Todas las categorías</option>
+            {uniqueCategories.map(cat => (
+              <option key={cat} value={cat}>
+                {PRODUCT_CATEGORIES.find(c => c.value === cat)?.label || cat}
+              </option>
+            ))}
+          </select>
         </div>
 
         {(filtros.busqueda || filtros.categoria) && (

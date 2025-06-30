@@ -1,4 +1,4 @@
-export type ProductCategory = 'papeleria' | 'alimentos' | 'semillas' | 'aseo' | 'otros';
+export type ProductCategory = string;
 
 export interface TaxConfig {
   enabled: boolean;

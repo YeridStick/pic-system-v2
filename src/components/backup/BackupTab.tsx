@@ -2,11 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { 
   Database, Download, Upload, Trash2, RefreshCw, FileText, 
   Package, Settings, BarChart3, AlertTriangle, CheckCircle, 
-  HardDrive, Shield, Archive, Copy, Eye, X 
+  HardDrive, Shield, Archive, Copy, Eye, X, RotateCcw 
 } from 'lucide-react';
 import { useConfigStore } from '../../stores/configStore';
 import { useProductStore } from '../../stores/productStore';
 import toast from 'react-hot-toast';
+import { useAuditStore } from '../../stores/auditStore';
+import type { AuditEvent } from '../../types/storage';
+import type { ProductFormData } from '../../types/product';
 
 interface StorageItem {
   key: string;
@@ -32,7 +35,14 @@ interface BackupData {
 
 export const BackupTab: React.FC = () => {
   const { excelConfig, resetConfig } = useConfigStore();
-  const { productos, productosOriginales, clearAllProducts } = useProductStore();
+  const { productos, productosOriginales, clearAllProducts, addProduct, updateProduct, deleteProduct } = useProductStore();
+  const {
+    events: auditEvents,
+    config: auditConfig,
+    clearEvents,
+    deleteEvent,
+    setConfig: setAuditConfig,
+  } = useAuditStore();
   
   const [storageStats, setStorageStats] = useState<StorageItem[]>([]);
   const [totalSize, setTotalSize] = useState(0);
@@ -40,6 +50,7 @@ export const BackupTab: React.FC = () => {
   const [showConfirmDialog, setShowConfirmDialog] = useState<string | null>(null);
   const [previewData, setPreviewData] = useState<BackupData | null>(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [showAudit, setShowAudit] = useState(false);
 
   // Cargar estadísticas del storage
   useEffect(() => {
@@ -562,6 +573,160 @@ export const BackupTab: React.FC = () => {
     );
   };
 
+  // UI para auditoría automática
+  const AuditSection = () => (
+    <div className="mt-8 mx-auto bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+      <div className="flex items-center gap-3 px-6 py-4 bg-blue-50 border-b border-blue-100">
+        <div className="bg-blue-100 p-2 rounded-full">
+          <Shield className="w-7 h-7 text-blue-500" />
+        </div>
+        <div>
+          <h3 className="text-lg font-bold text-blue-700">Auditoría automática</h3>
+          <div className="text-xs text-gray-500">Eventos guardados: {auditEvents.length} / {auditConfig.maxEvents} (mín. {auditConfig.minEvents}, máx. {auditConfig.maxEvents})</div>
+        </div>
+        <div className="flex-1" />
+        <label className="flex items-center gap-1 text-blue-700 text-xs font-medium">
+          <input
+            type="checkbox"
+            checked={auditConfig.enabled}
+            onChange={e => setAuditConfig({ enabled: e.target.checked })}
+            className="accent-blue-500"
+          />
+          Activar
+        </label>
+        <button
+          className="ml-2 text-xs text-red-500 border border-red-300 rounded px-2 py-1 hover:bg-red-50"
+          onClick={clearEvents}
+          disabled={auditEvents.length === 0}
+        >
+          Eliminar toda la auditoría
+        </button>
+      </div>
+      <div className="px-6 py-4">
+        <button
+          className="text-xs text-blue-600 underline mb-2"
+          onClick={() => setShowAudit(v => !v)}
+        >
+          {showAudit ? 'Ocultar historial' : 'Ver historial de auditoría'}
+        </button>
+        {showAudit && (
+          <div className="relative">
+            {auditEvents.length === 0 ? (
+              <div className="text-gray-400 text-sm py-8 text-center">No hay eventos registrados.</div>
+            ) : (
+              <ul className="space-y-0.5 border-l-2 border-blue-100 pl-4">
+                {auditEvents.map((event: AuditEvent) => (
+                  <li key={event.id} className="flex items-center group hover:bg-blue-50 rounded-lg transition-colors py-2 pr-2">
+                    {/* Timeline dot */}
+                    <span className="w-3 h-3 rounded-full bg-blue-400 border-2 border-white shadow -ml-6 mr-3" />
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-xs text-blue-700">[{event.type}]</span>
+                        <span className="text-xs text-gray-500">{new Date(event.timestamp).toLocaleString()}</span>
+                      </div>
+                      <div className="text-xs text-gray-700 mt-0.5">{event.description}</div>
+                    </div>
+                    <div className="flex gap-2 ml-2 opacity-80 group-hover:opacity-100">
+                      <button
+                        className="p-1 rounded-full hover:bg-green-100 text-green-600"
+                        title="Restaurar"
+                        onClick={() => {
+                          if (event.dataBefore) {
+                            restoreProductAuditEvent(event);
+                          }
+                        }}
+                        disabled={!event.dataBefore}
+                      >
+                        <RotateCcw className="w-4 h-4" />
+                      </button>
+                      <button
+                        className="p-1 rounded-full hover:bg-red-100 text-red-500"
+                        title="Borrar evento"
+                        onClick={() => deleteEvent(event.id)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  // Utilidad para convertir Product a ProductFormData
+  function productToFormData(product: unknown): ProductFormData {
+    if (typeof product === 'object' && product !== null && 'producto' in product) {
+      const p = product as Record<string, unknown>;
+      return {
+        producto: String(p.producto),
+        cantidad: Number(p.cantidad),
+        presentacion: String(p.presentacion),
+        categoria: p.categoria as ProductFormData['categoria'],
+        valorCosto: Number(p.valorCosto),
+        margen: Number(p.margen),
+        impuestos: p.impuestos as ProductFormData['impuestos'],
+        costosAdicionales: p.costosAdicionales as ProductFormData['costosAdicionales'],
+      };
+    }
+    throw new Error('Objeto inválido para restaurar producto');
+  }
+
+  const restoreProductAuditEvent = (event: AuditEvent) => {
+    switch (event.type) {
+      case 'product_add': {
+        // Restaurar borrando el producto agregado
+        const prod = event.dataAfter as { id?: string } | undefined;
+        if (prod && typeof prod.id === 'string') {
+          deleteProduct(prod.id);
+          toast.success('Producto eliminado para restaurar el estado anterior.');
+        }
+        break;
+      }
+      case 'product_update': {
+        // Restaurar el producto a su estado anterior
+        const prod = event.dataBefore as { id?: string } | undefined;
+        if (prod && typeof prod.id === 'string') {
+          updateProduct(prod.id, prod);
+          toast.success('Producto restaurado a su estado anterior.');
+        }
+        break;
+      }
+      case 'product_delete': {
+        // Restaurar el producto eliminado
+        const prod = event.dataBefore as unknown;
+        try {
+          addProduct(productToFormData(prod));
+          toast.success('Producto restaurado.');
+        } catch {
+          toast.error('No se pudo restaurar el producto.');
+        }
+        break;
+      }
+      case 'products_bulk_delete': {
+        // Restaurar todos los productos eliminados
+        const prods = event.dataBefore as unknown[] | undefined;
+        if (Array.isArray(prods)) {
+          clearAllProducts();
+          prods.forEach((prod) => {
+            try {
+              addProduct(productToFormData(prod));
+            } catch {
+              // Si falla la restauración de un producto, simplemente lo omite
+            }
+          });
+          toast.success('Todos los productos restaurados.');
+        }
+        break;
+      }
+      default:
+        toast.error('Tipo de evento no soportado para restauración.');
+    }
+  };
+
   return (
     <div>
       {/* Header principal */}
@@ -896,6 +1061,8 @@ export const BackupTab: React.FC = () => {
           </div>
         </div>
       </div>
+
+      <AuditSection />
     </div>
   );
 };

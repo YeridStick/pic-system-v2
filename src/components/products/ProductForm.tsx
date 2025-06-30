@@ -17,12 +17,11 @@ import {
 } from 'lucide-react';
 import { useProductStore } from '../../stores/productStore';
 import { useUIStore } from '../../stores/uiStore';
-import { ProductCategory } from '../../utils/product/ProductCategory';
 import { calculateTotalValue } from '../../utils/calculations';
 import { formatCurrency } from '../../utils/formatters';
 import { Button } from '../common/Button';
 import toast from 'react-hot-toast';
-import type { Product, ProductCategory as ProductCategoryType, TaxConfig, AdditionalCost } from '../../types';
+import type { Product, TaxConfig, AdditionalCost } from '../../types';
 
 // Schema de validación con Zod
 const productSchema = z.object({
@@ -35,7 +34,7 @@ const productSchema = z.object({
   presentacion: z.string()
     .min(2, 'La presentación debe tener al menos 2 caracteres')
     .max(50, 'La presentación no puede exceder 50 caracteres'),
-  categoria: z.enum(['papeleria', 'alimentos', 'semillas', 'aseo', 'otros']),
+  categoria: z.string().min(2, 'Debe seleccionar o escribir una categoría').max(50, 'La categoría no puede exceder 50 caracteres'),
   valorCosto: z.number()
     .min(0.01, 'El valor debe ser mayor a 0')
     .max(999999999, 'El valor es demasiado alto'),
@@ -65,12 +64,12 @@ export const ProductForm: React.FC = () => {
   const { openModal } = useUIStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [calculatedTotal, setCalculatedTotal] = useState(0);
+  const [customCategory, setCustomCategory] = useState('');
 
   const {
     register,
     handleSubmit,
     watch,
-    setValue,
     reset,
     formState: { errors, isValid, isDirty }
   } = useForm<ProductFormData>({
@@ -104,6 +103,7 @@ export const ProductForm: React.FC = () => {
   const watchedOtrosImpRate = watch('otrosImpRate');
   const watchedIncludeCostosAdic = watch('includeCostosAdic');
   const watchedCostosAdicValue = watch('costosAdicValue');
+  const watchedCategoria = watch('categoria');
 
   // Calcular valor total en tiempo real
   useEffect(() => {
@@ -152,13 +152,14 @@ export const ProductForm: React.FC = () => {
       }
       const valorTotal = calculateTotalValue(data.valorCosto, data.margen, impuestos, costosAdicionales);
       
+      const categoriaFinal = data.categoria === 'otros' ? (customCategory.trim() || 'otros') : data.categoria;
       const newProduct: Product = {
         id: Date.now().toString(),
         item: contadorItems,
         producto: data.producto.trim(),
         cantidad: data.cantidad,
         presentacion: data.presentacion.trim(),
-        categoria: data.categoria,
+        categoria: categoriaFinal,
         valorCosto: data.valorCosto,
         margen: data.margen,
         valorTotal,
@@ -187,6 +188,7 @@ export const ProductForm: React.FC = () => {
         includeCostosAdic: false,
         costosAdicValue: 0,
       });
+      setCustomCategory('');
       
       toast.success('✅ Producto agregado correctamente', {
         duration: 3000,
@@ -324,11 +326,27 @@ export const ProductForm: React.FC = () => {
               <label className="block text-sm font-semibold text-gray-700 mb-2">
                 Categoría *
               </label>
-              <ProductCategory
-                value={watch('categoria')}
-                onChange={(value: ProductCategoryType) => setValue('categoria', value, { shouldValidate: true })}
-                error={errors.categoria?.message}
-              />
+              <select
+                {...register('categoria')}
+                className="w-full border rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-400"
+              >
+                <option value="">Seleccione una categoría</option>
+                <option value="papeleria">Papeleria</option>
+                <option value="alimentos">Alimentos</option>
+                <option value="semillas">Semillas</option>
+                <option value="aseo">Aseo</option>
+                <option value="otros">Otros</option>
+              </select>
+              {watchedCategoria === 'otros' && (
+                <input
+                  type="text"
+                  className="mt-2 w-full border rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-400"
+                  placeholder="Escribe la categoría personalizada"
+                  value={customCategory}
+                  onChange={e => setCustomCategory(e.target.value)}
+                  maxLength={50}
+                />
+              )}
             </div>
 
             {/* Valor Costo */}

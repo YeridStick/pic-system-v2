@@ -171,7 +171,13 @@ export const calculateBudgetStatistics = (productos: Product[]): BudgetStatistic
   const margenPromedio = calculateAverageMargin(productos);
 
   // Distribución por categorías
-  const distribucionCategorias: BudgetStatistics['distribucionCategorias'] = {
+  const distribucionCategorias: Record<string, {
+    cantidad: number;
+    costoTotal: number;
+    presupuestoTotal: number;
+    margenPromedio: number;
+    porcentajeDelTotal: number;
+  }> = {
     papeleria: { cantidad: 0, costoTotal: 0, presupuestoTotal: 0, margenPromedio: 0, porcentajeDelTotal: 0 },
     alimentos: { cantidad: 0, costoTotal: 0, presupuestoTotal: 0, margenPromedio: 0, porcentajeDelTotal: 0 },
     semillas: { cantidad: 0, costoTotal: 0, presupuestoTotal: 0, margenPromedio: 0, porcentajeDelTotal: 0 },
@@ -184,6 +190,15 @@ export const calculateBudgetStatistics = (productos: Product[]): BudgetStatistic
     const subtotalCosto = producto.valorCosto * producto.cantidad;
     const subtotalPresupuesto = producto.valorTotal * producto.cantidad;
 
+    if (!distribucionCategorias[categoria]) {
+      distribucionCategorias[categoria] = {
+        cantidad: 0,
+        costoTotal: 0,
+        presupuestoTotal: 0,
+        margenPromedio: 0,
+        porcentajeDelTotal: 0,
+      };
+    }
     distribucionCategorias[categoria].cantidad += 1;
     distribucionCategorias[categoria].costoTotal += subtotalCosto;
     distribucionCategorias[categoria].presupuestoTotal += subtotalPresupuesto;

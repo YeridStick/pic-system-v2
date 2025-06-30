@@ -17,8 +17,6 @@ export const ProductCategoryBadge: React.FC<ProductCategoryBadgeProps> = ({
 }) => {
   const categoryInfo = PRODUCT_CATEGORIES.find(c => c.value === category);
   
-  if (!categoryInfo) return null;
-
   const sizeClasses = {
     sm: 'text-xs px-2 py-0.5',
     md: 'text-sm px-2.5 py-1',
@@ -29,6 +27,16 @@ export const ProductCategoryBadge: React.FC<ProductCategoryBadgeProps> = ({
     filled: 'bg-primary-100 text-primary-800',
     outlined: 'border border-primary-200 text-primary-700 bg-white'
   };
+
+  if (!categoryInfo) {
+    return (
+      <span
+        className={`inline-flex items-center justify-center rounded-full font-medium ${sizeClasses[size]} ${variantClasses[variant]} ${className}`}
+      >
+        {category}
+      </span>
+    );
+  }
 
   return (
     <span
