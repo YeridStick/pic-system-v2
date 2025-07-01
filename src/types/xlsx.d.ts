@@ -66,9 +66,13 @@ declare module 'xlsx' {
     aoa_to_sheet(data: unknown[][]): WorkSheet;
     book_append_sheet(wb: Workbook, ws: WorkSheet, name: string): void;
     writeFile(wb: Workbook, filename: string): void;
+    sheet_to_json(worksheet: WorkSheet, opts?: { header?: number | string[] }): unknown[][];
+    json_to_sheet(data: Record<string, unknown>[]): WorkSheet;
     decode_range(ref: string): { s: { r: number; c: number }; e: { r: number; c: number } };
     encode_cell(ref: { r: number; c: number }): string;
   };
+
+  export function read(data: string | ArrayBuffer, opts?: { type: string }): Workbook;
 
   // Add the 'write' function directly here for browser compatibility
   export function write(wb: Workbook, opts?: { bookType?: 'xlsx' | 'xlsm' | 'xlsb' | 'biff8' | 'biff5' | 'biff4' | 'biff3' | 'biff2' | 'xlml' | 'ods' | 'fods' | 'sylk' | 'html' | 'dif' | 'dbf' | 'prn' | 'txt' | 'eth' | 'rtf' | 'csv' | 'txt' | 'html'; type?: 'base64' | 'binary' | 'array' | 'string' | 'buffer'; }): Uint8Array;

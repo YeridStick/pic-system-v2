@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Database, Download, Upload, Trash2, RefreshCw, FileText, 
   Package, Settings, BarChart3, AlertTriangle, CheckCircle, 
@@ -10,6 +10,7 @@ import toast from 'react-hot-toast';
 import { useAuditStore } from '../../stores/auditStore';
 import type { AuditEvent } from '../../types/storage';
 import type { ProductFormData } from '../../types/product';
+import * as XLSX from 'xlsx';
 
 interface StorageItem {
   key: string;
@@ -35,7 +36,7 @@ interface BackupData {
 
 export const BackupTab: React.FC = () => {
   const { excelConfig, resetConfig } = useConfigStore();
-  const { productos, productosOriginales, clearAllProducts, addProduct, updateProduct, deleteProduct } = useProductStore();
+  const { productos, productosOriginales, clearAllProducts, addProduct, updateProduct, deleteProduct, setFiltros } = useProductStore();
   const {
     events: auditEvents,
     config: auditConfig,
@@ -51,6 +52,16 @@ export const BackupTab: React.FC = () => {
   const [previewData, setPreviewData] = useState<BackupData | null>(null);
   const [showPreview, setShowPreview] = useState(false);
   const [showAudit, setShowAudit] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  type ExcelRow = Record<string, string | number | undefined>;
+  const [excelRows, setExcelRows] = useState<ExcelRow[]>([]);
+  const [excelHeaders, setExcelHeaders] = useState<string[]>([]);
+  const [excelMapping, setExcelMapping] = useState<Record<string, string>>({});
+  const [showExcelImport, setShowExcelImport] = useState(false);
+  const [excelImportError, setExcelImportError] = useState<string | null>(null);
+  const [excelStep, setExcelStep] = useState<'preview' | 'mapping' | 'done'>('preview');
+  const [isImporting, setIsImporting] = useState(false);
+  const [selectedFileName, setSelectedFileName] = useState<string>('');
 
   // Cargar estadísticas del storage
   useEffect(() => {
@@ -239,7 +250,7 @@ export const BackupTab: React.FC = () => {
 
     reader.readAsText(file);
     // Limpiar el input
-    event.target.value = '';
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   // Aplicar respaldo
@@ -727,6 +738,185 @@ export const BackupTab: React.FC = () => {
     }
   };
 
+  // Campos del producto a mapear
+  const PRODUCT_FIELDS = [
+    { key: 'producto', label: 'Nombre/Producto' },
+    { key: 'cantidad', label: 'Cantidad' },
+    { key: 'presentacion', label: 'Presentación' },
+    { key: 'categoria', label: 'Categoría' },
+    { key: 'valorCosto', label: 'Valor Costo' },
+    { key: 'margen', label: 'Margen (%)' },
+  ];
+
+  // Sugerencias automáticas de mapeo por nombre o sinónimos
+  const FIELD_SYNONYMS: Record<string, string[]> = {
+    producto: ['producto', 'nombre', 'nombre producto', 'nombre del producto', 'descripcion', 'descripción'],
+    cantidad: ['cantidad', 'cant', 'qty', 'cantidad total'],
+    presentacion: ['presentacion', 'presentación', 'unidad', 'presentacion/unidad'],
+    categoria: ['categoria', 'categoría', 'grupo', 'tipo'],
+    valorCosto: ['valor costo', 'costo', 'valor unitario', 'valor de costo', 'precio costo'],
+    margen: ['margen', 'margen (%)', 'margen %'],
+  };
+
+  // Función para sugerir el encabezado más parecido
+  function suggestMapping(fieldKey: string, headers: string[]): string {
+    const synonyms = FIELD_SYNONYMS[fieldKey].map(s => s.toLowerCase());
+    const found = headers.find(h => synonyms.includes(h.toLowerCase().trim()));
+    if (found) return found;
+    // Si no hay coincidencia exacta, buscar por inclusión
+    const foundInc = headers.find(h => synonyms.some(s => h.toLowerCase().includes(s)));
+    if (foundInc) return foundInc;
+    return '';
+  }
+
+  // Cuando se detectan encabezados, sugerir automáticamente el mapeo
+  useEffect(() => {
+    if (excelHeaders.length > 0) {
+      setExcelMapping(prev => {
+        const newMapping: Record<string, string> = { ...prev };
+        PRODUCT_FIELDS.forEach(({ key }) => {
+          if (!newMapping[key]) {
+            newMapping[key] = suggestMapping(key, excelHeaders);
+          }
+        });
+        return newMapping;
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [excelHeaders]);
+
+  // 1. Botón para importar Excel
+  const handleExcelButton = () => {
+    setShowExcelImport(true);
+    setExcelRows([]);
+    setExcelHeaders([]);
+    setExcelMapping({});
+    setExcelImportError(null);
+    setExcelStep('preview');
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  // Buscar encabezados de columna de forma robusta (sin depender de negrilla)
+  const extractHeaderRow = (workbook: XLSX.Workbook) => {
+    let headerRow: string[] = [];
+    let dataRows: ExcelRow[] = [];
+    for (const sheetName of workbook.SheetNames) {
+      const worksheet = workbook.Sheets[sheetName];
+      const aoa: unknown[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+      let headerRowIdx = -1;
+      for (let i = 0; i < aoa.length; i++) {
+        const row = aoa[i];
+        const nonEmpty = row.filter(cell => cell !== undefined && cell !== null && String(cell).trim() !== '');
+        if (nonEmpty.length >= 2) {
+          headerRowIdx = i;
+          break;
+        }
+      }
+      if (headerRowIdx >= 0) {
+        headerRow = (aoa[headerRowIdx] as unknown[]).map(h => String(h));
+        dataRows = aoa.slice(headerRowIdx + 1).map((row: unknown[]) => {
+          const obj: ExcelRow = {};
+          headerRow.forEach((h, idx) => {
+            obj[h] = typeof row[idx] === 'undefined' ? '' : String(row[idx]);
+          });
+          return obj;
+        });
+        console.log('Encabezado detectado:', headerRow);
+        break;
+      }
+    }
+    if (!headerRow.length) {
+      console.error('No se detectó encabezado válido en ninguna hoja.');
+    }
+    return { headerRow, dataRows };
+  };
+
+  // 2. Leer archivo Excel
+  const handleExcelFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setSelectedFileName(file.name);
+    console.log('Archivo seleccionado:', file.name);
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      const data = evt.target?.result;
+      try {
+        const workbook = XLSX.read(data!, { type: 'binary' });
+        const { headerRow, dataRows } = extractHeaderRow(workbook);
+        if (!headerRow.length) throw new Error('No se detectaron encabezados válidos en ninguna hoja.');
+        setExcelHeaders(headerRow);
+        setExcelRows(dataRows);
+        setExcelStep('mapping');
+        setExcelImportError(null);
+        console.log('Archivo procesado correctamente, avanzando a mapeo.');
+      } catch (err) {
+        setExcelImportError('No se pudo leer el archivo Excel: ' + ((err as Error).message || err));
+        setExcelStep('preview');
+        console.error('Error al procesar archivo Excel:', err);
+      }
+    };
+    reader.readAsBinaryString(file);
+  };
+
+  // 3. Interfaz de mapeo de columnas
+  const handleMappingChange = (field: string, excelCol: string) => {
+    setExcelMapping((prev) => ({ ...prev, [field]: excelCol }));
+  };
+
+  // 4. Validar mapeo y preparar productos
+  const getMappedProducts = () => {
+    return excelRows.map((row) => {
+      const prod: Record<string, unknown> = {};
+      PRODUCT_FIELDS.forEach(({ key }) => {
+        prod[key] = row[excelMapping[key]];
+      });
+      // Asignar valores por defecto si faltan datos
+      prod.producto = String(prod.producto || 'Producto sin nombre');
+      prod.cantidad = Number(prod.cantidad) || 1;
+      prod.presentacion = String(prod.presentacion || 'UNIDAD');
+      prod.categoria = String(prod.categoria || 'otros');
+      prod.valorCosto = Number(prod.valorCosto) || 0;
+      prod.margen = Number(prod.margen) || 0;
+      return prod;
+    });
+  };
+
+  // 5. Importar productos
+  const handleImportProducts = () => {
+    setIsImporting(true);
+    try {
+      const mapped = getMappedProducts();
+      let importCount = 0;
+      console.log('Productos a importar:', mapped);
+      mapped.forEach((prod) => {
+        const cleanProduct: ProductFormData = {
+          producto: String(prod.producto || 'Producto sin nombre'),
+          cantidad: Number(prod.cantidad) || 1,
+          presentacion: String(prod.presentacion || 'UNIDAD'),
+          categoria: String(prod.categoria || 'otros'),
+          valorCosto: Number(prod.valorCosto) || 0,
+          margen: Number(prod.margen) || 0,
+        };
+        console.log('Agregando producto:', cleanProduct);
+        addProduct(cleanProduct);
+        importCount++;
+      });
+      setExcelStep('done');
+      setFiltros({ busqueda: '', categoria: '' }); // Limpiar filtros
+      setIsImporting(false);
+      setTimeout(() => {
+        // Mostrar productos actuales en consola para depuración
+        console.log('Productos actuales tras importación:', productos);
+      }, 500);
+      toast.success(`Se importaron ${importCount} producto(s) correctamente`);
+    } catch (err) {
+      setIsImporting(false);
+      setExcelImportError('Error al importar productos: ' + ((err as Error).message || err));
+      toast.error('Error al importar productos. Revisa la consola para más detalles.');
+      console.error('Error al importar productos:', err);
+    }
+  };
+
   return (
     <div>
       {/* Header principal */}
@@ -1063,6 +1253,135 @@ export const BackupTab: React.FC = () => {
       </div>
 
       <AuditSection />
+
+      <div className="flex justify-center mb-6 mt-6">
+        <button
+          className={`inline-flex items-center px-8 py-4 text-lg font-bold rounded-xl shadow-lg bg-gradient-to-r from-blue-600 to-indigo-500 text-white hover:from-blue-700 hover:to-indigo-600 transition-all duration-200 ${isImporting ? 'opacity-60 cursor-not-allowed' : ''}`}
+          onClick={handleExcelButton}
+          disabled={isImporting}
+        >
+          {isImporting ? (
+            <svg className="animate-spin h-6 w-6 mr-3 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+            </svg>
+          ) : (
+            <Upload className="w-6 h-6 mr-3" />
+          )}
+          {isImporting ? 'Importando...' : 'Importar productos desde Excel'}
+        </button>
+      </div>
+
+      {/* Modal de importación de Excel */}
+      {showExcelImport && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 animate-fade-in">
+          <div className="relative w-full max-w-2xl mx-auto bg-white rounded-2xl shadow-2xl p-0 overflow-hidden animate-fade-in-up">
+            {/* Cabecera */}
+            <div className="flex items-center justify-between px-8 py-6 border-b border-gray-100 bg-gradient-to-r from-blue-50 to-indigo-100">
+              <div className="flex items-center gap-3">
+                <svg className="w-8 h-8 text-green-600" fill="none" viewBox="0 0 24 24"><rect width="24" height="24" rx="4" fill="#22c55e"/><text x="12" y="18" textAnchor="middle" fontSize="16" fill="white" fontWeight="bold">X</text></svg>
+                <h2 className="text-2xl font-bold text-gray-800">Importar productos desde Excel</h2>
+              </div>
+              <button className="text-gray-500 hover:text-red-500 transition-colors text-2xl" onClick={() => setShowExcelImport(false)}>
+                <X className="w-7 h-7" />
+              </button>
+            </div>
+            {/* Contenido condicional según excelStep */}
+            {excelStep === 'preview' && (
+              <div className="px-8 py-8 flex flex-col items-center gap-4">
+                <label htmlFor="excel-file-input" className="inline-flex items-center px-6 py-3 bg-green-600 hover:bg-green-700 text-white text-lg font-semibold rounded-lg shadow cursor-pointer transition-all duration-200">
+                  <svg className="w-6 h-6 mr-2" fill="currentColor" viewBox="0 0 24 24"><rect width="24" height="24" rx="4" fill="#22c55e"/><text x="12" y="18" textAnchor="middle" fontSize="16" fill="white" fontWeight="bold">X</text></svg>
+                  Seleccionar archivo Excel
+                </label>
+                <input
+                  id="excel-file-input"
+                  type="file"
+                  accept=".xlsx,.xls"
+                  ref={fileInputRef}
+                  onChange={handleExcelFile}
+                  className="hidden"
+                />
+                <span className="mt-2 text-gray-700 text-base">
+                  {selectedFileName ? selectedFileName : 'Sin archivos seleccionados'}
+                </span>
+                {selectedFileName && (
+                  <button
+                    className="mt-4 px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white text-lg font-semibold rounded-lg shadow transition-all duration-200"
+                    onClick={() => setExcelStep('mapping')}
+                  >
+                    Continuar
+                  </button>
+                )}
+                {excelImportError && <div className="text-red-600 text-center mt-2 flex items-center gap-2"><AlertTriangle className="w-5 h-5" /> {excelImportError}</div>}
+              </div>
+            )}
+            {excelStep === 'mapping' && (
+              <div className="px-8 py-8 flex flex-col gap-6">
+                <h3 className="text-xl font-bold mb-2 text-gray-800">Mapeo de columnas</h3>
+                <div className="mb-4 text-gray-600 text-sm">Asigna las columnas del Excel a los campos del producto. Si falta algún dato, se usará un valor por defecto.</div>
+                <div className="overflow-x-auto mb-4">
+                  <table className="min-w-full border rounded-lg">
+                    <thead>
+                      <tr className="bg-gray-100">
+                        {excelHeaders.map((header, idx) => (
+                          <th key={idx} className="px-3 py-2 text-xs font-semibold text-gray-700 border-b">{header}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {excelRows.slice(0, 3).map((row, i) => (
+                        <tr key={i} className="bg-white">
+                          {excelHeaders.map((header, idx) => (
+                            <td key={idx} className="px-3 py-2 text-xs text-gray-700 border-b">{row[header]}</td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {excelRows.length > 3 && <div className="text-xs text-gray-500 mt-1">Mostrando primeras 3 filas de {excelRows.length}</div>}
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                  {PRODUCT_FIELDS.map(({ key, label }) => (
+                    <div key={key} className="flex flex-col gap-1">
+                      <label className="text-sm font-medium text-gray-700">{label}</label>
+                      <select
+                        className="border rounded-lg px-3 py-2 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                        value={excelMapping[key] || ''}
+                        onChange={e => handleMappingChange(key, e.target.value)}
+                      >
+                        <option value="">(Sin asignar)</option>
+                        {excelHeaders.map((header, idx) => (
+                          <option key={idx} value={header}>{header}</option>
+                        ))}
+                      </select>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  className={`mt-2 px-8 py-3 bg-green-600 hover:bg-green-700 text-white text-lg font-semibold rounded-lg shadow transition-all duration-200 ${isImporting ? 'opacity-60 cursor-not-allowed' : ''}`}
+                  onClick={handleImportProducts}
+                  disabled={isImporting}
+                >
+                  {isImporting ? 'Importando...' : 'Importar productos'}
+                </button>
+                {excelImportError && <div className="text-red-600 text-center mt-2 flex items-center gap-2"><AlertTriangle className="w-5 h-5" /> {excelImportError}</div>}
+              </div>
+            )}
+            {excelStep === 'done' && (
+              <div className="px-8 py-12 flex flex-col items-center gap-6">
+                <CheckCircle className="w-16 h-16 text-green-500 mb-2" />
+                <h3 className="text-2xl font-bold text-green-700">¡Productos importados correctamente!</h3>
+                <button
+                  className="mt-4 px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white text-lg font-semibold rounded-lg shadow transition-all duration-200"
+                  onClick={() => setShowExcelImport(false)}
+                >
+                  Cerrar
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
