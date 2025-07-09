@@ -42,7 +42,7 @@ type SortDirection = 'asc' | 'desc';
 // ];
 
 export const ProductTable: React.FC = () => {
-  const { getFilteredProducts, deleteProduct } = useProductStore();
+  const { getFilteredProducts, deleteProduct, clearAllProducts } = useProductStore();
   const { openModal } = useUIStore();
   
   const [sortField, setSortField] = useState<SortField>('item');
@@ -258,8 +258,48 @@ export const ProductTable: React.FC = () => {
                 variant="danger" 
                 size="sm"
                 onClick={() => {
-                  // TODO: Eliminar múltiples productos
-                  toast.success(`${selectedProducts.size} productos seleccionados`);
+                  // Confirmación antes de eliminar
+                  const confirmDelete = () => {
+                    if (selectedProducts.size === productos.length) {
+                      clearAllProducts();
+                      toast.success('Todos los productos eliminados');
+                    } else {
+                      Array.from(selectedProducts).forEach(id => deleteProduct(id));
+                      toast.success(`${selectedProducts.size} productos eliminados`);
+                    }
+                    setSelectedProducts(new Set());
+                  };
+                  toast((t) => (
+                    <div className="flex items-center space-x-3">
+                      <AlertTriangle className="w-5 h-5 text-amber-500" />
+                      <div className="flex-1">
+                        <p className="font-medium text-gray-900">¿Eliminar productos seleccionados?</p>
+                        <p className="text-sm text-gray-600 truncate max-w-[200px]">
+                          Se eliminarán {selectedProducts.size} productos.
+                        </p>
+                      </div>
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={() => {
+                            confirmDelete();
+                            toast.dismiss(t.id);
+                          }}
+                          className="px-3 py-1 bg-red-600 text-white text-sm rounded-md hover:bg-red-700 transition-colors"
+                        >
+                          Eliminar
+                        </button>
+                        <button
+                          onClick={() => toast.dismiss(t.id)}
+                          className="px-3 py-1 bg-gray-300 text-gray-700 text-sm rounded-md hover:bg-gray-400 transition-colors"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    </div>
+                  ), {
+                    duration: 5000,
+                    style: { maxWidth: '400px' }
+                  });
                 }}
               >
                 <Trash2 className="w-4 h-4 mr-1" />

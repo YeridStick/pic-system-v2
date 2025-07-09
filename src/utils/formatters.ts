@@ -25,7 +25,8 @@ export const formatCurrency = (amount: number): string => {
   /**
    * Formatea un porcentaje
    */
-  export const formatPercentage = (value: number, decimals: number = 1): string => {
+  export const formatPercentage = (value: number | null | undefined, decimals: number = 1): string => {
+    if (typeof value !== 'number' || isNaN(value)) return '0%';
     return `${value.toFixed(decimals)}%`;
   };
   

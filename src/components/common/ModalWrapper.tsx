@@ -31,7 +31,7 @@ export const ModalWrapper: React.FC<ModalWrapperProps> = ({
 
   return (
     <div
-      className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-6 animate-fade-in overflow-y-auto h-screen"
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex justify-center p-6 animate-fade-in overflow-y-auto h-screen"
       onClick={handleBackdropClick}
     >
       <div

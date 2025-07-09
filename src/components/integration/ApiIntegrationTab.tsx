@@ -77,12 +77,17 @@ const ApiIntegrationTab: React.FC = () => {
         }
       }
       if (!Array.isArray(items) || items.length === 0) throw new Error('No se encontraron productos en la respuesta de la API');
-      // Tomar los primeros 5
-      const preview = items.slice(0, 5).map((item, idx) => {
+      // Tomar los primeros 10 para preview
+      const preview = items.slice(0, 10).map((item, idx) => {
         const mapped: Record<string, unknown> = {};
         LOCAL_FIELDS.forEach((field, fidx) => {
           mapped[field.value] = getValueByPath(item, apiFields[fidx]);
         });
+        // Conversión robusta de tipos para preview
+        mapped.margen = typeof mapped.margen === 'string' ? parseFloat(mapped.margen.replace('%', '')) : Number(mapped.margen ?? 0);
+        mapped.impuestos = typeof mapped.impuestos === 'string' ? parseFloat(mapped.impuestos.replace('%', '')) : Number(mapped.impuestos ?? 0);
+        mapped.valorCosto = Number(mapped.valorCosto ?? 0);
+        mapped.cantidad = Number(mapped.cantidad ?? 0);
         // Si no hay id, generar uno único
         if (!mapped.id || mapped.id === '' || mapped.id === undefined) {
           mapped.id = `api-prod-${Date.now()}-${idx}`;
@@ -90,6 +95,21 @@ const ApiIntegrationTab: React.FC = () => {
         return mapped;
       });
       setPreviewData(preview);
+      // Guardar todos los items para importación posterior
+      (window as unknown as { _apiIntegrationAllItems?: unknown })._apiIntegrationAllItems = items.map((item, idx) => {
+        const mapped: Record<string, unknown> = {};
+        LOCAL_FIELDS.forEach((field, fidx) => {
+          mapped[field.value] = getValueByPath(item, apiFields[fidx]);
+        });
+        mapped.margen = typeof mapped.margen === 'string' ? parseFloat(mapped.margen.replace('%', '')) : Number(mapped.margen ?? 0);
+        mapped.impuestos = typeof mapped.impuestos === 'string' ? parseFloat(mapped.impuestos.replace('%', '')) : Number(mapped.impuestos ?? 0);
+        mapped.valorCosto = Number(mapped.valorCosto ?? 0);
+        mapped.cantidad = Number(mapped.cantidad ?? 0);
+        if (!mapped.id || mapped.id === '' || mapped.id === undefined) {
+          mapped.id = `api-prod-${Date.now()}-${idx}`;
+        }
+        return mapped;
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error al conectar con la API');
       setShowErrorModal(true);
@@ -103,11 +123,19 @@ const ApiIntegrationTab: React.FC = () => {
     setConfig({ apiUrl, arrayPath, apiFields });
   };
 
-  // Importar productos al sistema (solo los del preview actual)
+  // Importar productos al sistema (todos los productos del array, no solo el preview)
   const handleLoadProducts = () => {
-    if (previewData.length > 0) {
-      previewData.forEach((row) => {
-        const r = row as Record<string, unknown>;
+    const allItems = (window as unknown as { _apiIntegrationAllItems?: unknown })._apiIntegrationAllItems as Record<string, unknown>[] | undefined;
+    const toImport = Array.isArray(allItems) && allItems.length > 0 ? allItems : previewData;
+    if (toImport.length > 0) {
+      toImport.forEach((item) => {
+        const r = item as Record<string, unknown>;
+        let impuestos: TaxConfig[] | undefined = undefined;
+        if (typeof r.impuestos === 'number') {
+          impuestos = [{ enabled: true, type: 'retencion', rate: r.impuestos as number, description: 'Importado de API' }];
+        } else if (Array.isArray(r.impuestos)) {
+          impuestos = r.impuestos as TaxConfig[];
+        }
         addProduct({
           producto: String(r.producto ?? ''),
           cantidad: Number(r.cantidad ?? 0),
@@ -115,11 +143,11 @@ const ApiIntegrationTab: React.FC = () => {
           categoria: String(r.categoria ?? 'otros') as ProductCategory,
           valorCosto: Number(r.valorCosto ?? 0),
           margen: Number(r.margen ?? 0),
-          impuestos: r.impuestos as TaxConfig[] | undefined,
+          impuestos,
           costosAdicionales: r.costosAdicionales as AdditionalCost[] | undefined,
         });
       });
-      toast.success('Productos importados correctamente');
+      toast.success(`Productos importados correctamente (${toImport.length})`);
     } else {
       toast.error('No hay productos para importar');
     }
@@ -202,7 +230,7 @@ const ApiIntegrationTab: React.FC = () => {
       {/* Acciones */}
       <div className="flex flex-col sm:flex-row gap-4 mb-6">
         <button
-          className="flex items-center gap-2 px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition disabled:opacity-50 font-semibold shadow"
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50 font-semibold shadow"
           onClick={handleTestConnection}
           disabled={!apiUrl || isLoading}
         >
@@ -253,7 +281,7 @@ const ApiIntegrationTab: React.FC = () => {
         {/* Botón para cargar productos */}
         <div className="mt-4 flex justify-end">
           <button
-            className="px-6 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition font-semibold shadow disabled:opacity-50"
+            className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition font-semibold shadow disabled:opacity-50"
             onClick={handleLoadProducts}
             disabled={previewData.length === 0}
           >
