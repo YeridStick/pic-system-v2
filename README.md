@@ -43,27 +43,6 @@
 
 ---
 
-## 📁 Estructura del proyecto
-
-```
-
-pic-system-v2/
-├── public/                # Archivos estáticos
-├── src/
-│   ├── components/        # Componentes reutilizables
-│   ├── pages/             # Vistas principales (catálogo, cotizaciones)
-│   ├── types/             # Tipos y modelos de datos
-│   ├── services/          # (Opcional) Adaptadores de API
-│   └── App.tsx            # Componente raíz
-├── tailwind.config.js     # Configuración de Tailwind
-├── vite.config.ts         # Configuración del proyecto
-├── tsconfig.json          # Configuración de TypeScript
-└── README.md              # Este archivo
-
-````
-
----
-
 ## 🚀 Instalación y ejecución local
 
 ```bash
