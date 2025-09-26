@@ -1,22 +1,22 @@
-```markdown
-# PIC System v2
+````markdown
+# 📦 PIC System v2
 
 **PIC System v2** es una aplicación web desarrollada con **React + TypeScript**, orientada a la **gestión de productos** para la construcción de **cotizaciones comerciales**. Su propósito es permitir la carga masiva y actualización de catálogos de productos, facilitando la generación ágil de cotizaciones personalizadas, con control de precios, impuestos y descuentos.
 
 ---
 
-## Características principales
+## 🌟 Características principales
 
-- Importación de productos desde archivos CSV o Excel
-- Gestión visual de productos, categorías y marcas
-- Generación de cotizaciones con múltiples productos
-- Cálculo automático de totales, impuestos y descuentos
-- Exportación de cotizaciones en PDF o Excel (pendiente)
-- Soporte para roles de administrador y vendedor (planificado)
+- 📁 Importación de productos desde archivos CSV o Excel
+- 🧾 Gestión visual de productos, categorías y marcas
+- 🛒 Generación de cotizaciones con múltiples productos
+- 💰 Cálculo automático de totales, impuestos y descuentos
+- 📤 Exportación de cotizaciones en PDF o Excel (pendiente)
+- 🔐 Soporte para roles de administrador y vendedor (planificado)
 
 ---
 
-## Casos de uso
+## 🧠 Casos de uso
 
 1. El administrador carga un archivo CSV con productos y precios.
 2. El sistema valida los datos e informa errores antes de guardar.
@@ -72,7 +72,6 @@ npm run dev
 
 ---
 
-
 ## 🔮 Próximas funcionalidades
 
 * Interfaz visual para cargar y validar productos
@@ -83,6 +82,20 @@ npm run dev
 
 ---
 
-## Contacto
+## 📬 Contacto
 
 Este proyecto fue creado por **Yerid Stick Ramírez Guzmán** como una solución para optimizar la carga y gestión de productos en procesos de cotización.
+
+```
+
+---
+
+✅ **Listo para copiar y pegar** directamente en tu repo como `README.md`.
+
+Si quieres, puedo ayudarte a crear también:
+- `docs/products-template.csv` (archivo base para importación),
+- un validador con **Zod** para el CSV,
+- o una tabla de ejemplo con productos y precios para pruebas.
+
+¿Quieres avanzar con alguno de esos?
+```
