@@ -1,4 +1,4 @@
-````markdown
+````
 # 📦 PIC System v2
 
 **PIC System v2** es una aplicación web desarrollada con **React + TypeScript**, orientada a la **gestión de productos** para la construcción de **cotizaciones comerciales**. Su propósito es permitir la carga masiva y actualización de catálogos de productos, facilitando la generación ágil de cotizaciones personalizadas, con control de precios, impuestos y descuentos.
