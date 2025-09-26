@@ -1,4 +1,3 @@
-````
 # 📦 PIC System v2
 
 **PIC System v2** es una aplicación web desarrollada con **React + TypeScript**, orientada a la **gestión de productos** para la construcción de **cotizaciones comerciales**. Su propósito es permitir la carga masiva y actualización de catálogos de productos, facilitando la generación ágil de cotizaciones personalizadas, con control de precios, impuestos y descuentos.
@@ -86,16 +85,4 @@ npm run dev
 
 Este proyecto fue creado por **Yerid Stick Ramírez Guzmán** como una solución para optimizar la carga y gestión de productos en procesos de cotización.
 
-```
-
----
-
-✅ **Listo para copiar y pegar** directamente en tu repo como `README.md`.
-
-Si quieres, puedo ayudarte a crear también:
-- `docs/products-template.csv` (archivo base para importación),
-- un validador con **Zod** para el CSV,
-- o una tabla de ejemplo con productos y precios para pruebas.
-
-¿Quieres avanzar con alguno de esos?
 ```
